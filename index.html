@@ -1,87 +1,163 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Page</title>
+    <title>規格選擇</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-        <h1 class="text-2xl font-bold mb-4 text-gray-800" id="product-name">Loading...</h1>
-        <p class="text-xl text-gray-600 mb-6" id="product-price"></p>
-        
+<body class="bg-gray-100 min-h-screen p-4 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+        <h1 id="prodName" class="text-xl font-bold text-gray-800 mb-2">載入中...</h1>
+        <p id="prodPrice" class="text-red-500 font-bold text-2xl mb-6">--</p>
+
         <div class="mb-6">
-            <label class="block text-gray-700 font-medium mb-2">Color</label>
-            <div class="flex gap-4">
-                <button onclick="selectColor('Silver')" id="btn-silver" class="flex-1 py-2 px-4 rounded border border-gray-300 transition-colors">Silver</button>
-                <button onclick="selectColor('Black')" id="btn-black" class="flex-1 py-2 px-4 rounded border border-gray-300 transition-colors">Black</button>
-            </div>
+            <label class="block text-gray-600 font-medium mb-2">顏色</label>
+            <div id="colorContainer" class="grid grid-cols-2 gap-2">
+                </div>
         </div>
 
         <div class="mb-6">
-             <label class="block text-gray-700 font-medium mb-2">Size</label>
-             <div class="flex gap-4">
-                <button onclick="selectSize('15 inch')" id="btn-15" class="flex-1 py-2 px-4 rounded border border-gray-300 transition-colors">15 inch</button>
-                <button onclick="selectSize('16 inch')" id="btn-16" class="flex-1 py-2 px-4 rounded border border-gray-300 transition-colors">16 inch</button>
-             </div>
+            <label class="block text-gray-600 font-medium mb-2">尺寸</label>
+            <div id="sizeContainer" class="grid grid-cols-2 gap-2">
+                </div>
         </div>
 
-        <div class="mb-8">
-            <label class="block text-gray-700 font-medium mb-2 text-center">Quantity</label>
-            <div class="flex items-center justify-center border border-gray-300 rounded overflow-hidden">
-                <button onclick="updateQuantity(-1)" class="px-6 py-3 bg-gray-100 hover:bg-gray-200 font-bold">-</button>
-                <input type="text" id="quantity" value="1" readonly class="w-16 text-center text-xl font-bold focus:outline-none">
-                <button onclick="updateQuantity(1)" class="px-6 py-3 bg-gray-100 hover:bg-gray-200 font-bold">+</button>
+        <div class="mb-8 flex items-center justify-between border-t pt-6">
+            <span class="text-gray-600 font-medium">下單數量</span>
+            <div class="flex items-center border rounded-lg overflow-hidden">
+                <button onclick="updateQty(-1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-200">-</button>
+                <span id="qtyText" class="px-6 py-2 font-bold min-w-[3rem] text-center">1</span>
+                <button onclick="updateQty(1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-200">+</button>
             </div>
         </div>
 
-        <button onclick="submitOrder()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg active:scale-95">
-            Confirm Order
+        <button onclick="submitOrder()" id="submitBtn" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all">
+            確認喊單
         </button>
     </div>
 
     <script>
+        // 核心狀態
         let state = {
             uid: '',
             name: '',
             price: '',
-            color: 'Silver',
-            size: '15 inch',
-            quantity: 1
+            color: '',
+            size: '',
+            qty: 1
         };
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
-            // 已填入你的 LIFF ID
-            liff.init({ liffId: "2009025778-m8CGWmqW" })
-                .then(() => { 
-                    if (!liff.isLoggedIn()) { liff.login(); }
-                })
-                .catch((err) => { console.error('LIFF Init failed', err); });
-
-            const urlParams = new URLSearchParams(window.location.search);
-            state.uid = urlParams.get('uid') || 'test_item';
-            state.name = urlParams.get('name') || 'Dell Inspiron';
-            state.price = urlParams.get('price') || '4568';
+        // 解決 liff.state 與 二次編碼問題的強大解析器
+        function getParam(name) {
+            const url = window.location.href;
+            const searchParams = new URLSearchParams(window.location.search);
             
-            // 從網址讀取預設規格 (如果有傳入的話)
-            if(urlParams.get('color')) state.color = urlParams.get('color');
-            if(urlParams.get('size')) state.size = urlParams.get('size');
-
-            document.getElementById('product-name').textContent = state.name;
-            document.getElementById('product-price').textContent = `$${state.price}`;
-
-            updateUI();
-        });
-
-        function selectColor(color) { state.color = color; updateUI(); }
-        function selectSize(size) { state.size = size; updateUI(); }
-
-        function updateUI() {
-            // 更新按鈕樣式
-            const active = "flex-1 py-2 px-4 rounded bg-blue-600 border border-blue-600 text-white shadow";
-            const inactive = "flex-1 py-2 px-4 rounded border border-gray-300 hover:bg-gray-50";
+            // 1. 先嘗試直接抓取
+            let val = searchParams.get(name);
             
-            document.getElementById('btn-silver').className
+            // 2. 如果抓不到，檢查是否被包在 liff.state 裡面
+            if (!val && searchParams.has('liff.state')) {
+                const liffState = searchParams.get('liff.state');
+                const decodedState = new URLSearchParams(decodeURIComponent(liffState));
+                val = decodedState.get(name);
+            }
+            
+            // 3. 處理可能的多次編碼
+            if (val) {
+                try {
+                    let decoded = decodeURIComponent(val);
+                    // 再次解碼以應對 double encoding
+                    if (decoded.includes('%')) decoded = decodeURIComponent(decoded);
+                    return decoded;
+                } catch (e) { return val; }
+            }
+            return null;
+        }
+
+        // 初始化 LIFF
+        async function init() {
+            try {
+                await liff.init({ liffId: "2009025778-m8CGWmqW" });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                } else {
+                    render();
+                }
+            } catch (err) {
+                console.error('LIFF Error:', err);
+                alert('LIFF 初始化失敗，請在 LINE 內開啟');
+            }
+        }
+
+        // 渲染 UI
+        function render() {
+            state.uid = getParam('uid') || 'Unknown';
+            state.name = getParam('name') || '未知名稱';
+            state.price = getParam('price') || '0';
+            
+            document.getElementById('prodName').innerText = state.name;
+            document.getElementById('prodPrice').innerText = `$${state.price}`;
+
+            // 動態生成顏色按鈕
+            const colors = getParam('colors') ? getParam('colors').split(',') : [];
+            setupButtons('colorContainer', colors, 'color');
+
+            // 動態生成尺寸按鈕
+            const sizes = getParam('sizes') ? getParam('sizes').split(',') : [];
+            setupButtons('sizeContainer', sizes, 'size');
+        }
+
+        function setupButtons(containerId, items, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            items.forEach(item => {
+                const btn = document.createElement('button');
+                btn.innerText = item;
+                btn.className = "border-2 border-gray-200 rounded-lg py-2 hover:bg-blue-50 transition-all text-sm";
+                btn.onclick = () => {
+                    // 更新狀態
+                    state[type] = item;
+                    // 切換樣式
+                    Array.from(container.children).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-600'));
+                    btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-600');
+                };
+                container.appendChild(btn);
+            });
+            
+            // 如果只有一個選項，自動選取
+            if (items.length === 1) container.firstChild.click();
+        }
+
+        function updateQty(n) {
+            state.qty = Math.max(1, state.qty + n);
+            document.getElementById('qtyText').innerText = state.qty;
+        }
+
+        async function submitOrder() {
+            if (!state.color || !state.size) {
+                alert('請選擇完整的顏色與尺寸！');
+                return;
+            }
+
+            const message = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
+
+            if (!liff.isInClient()) {
+                alert('瀏覽器模擬下單：\n' + message);
+                return;
+            }
+
+            try {
+                await liff.sendMessages([{ type: 'text', text: message }]);
+                liff.closeWindow();
+            } catch (err) {
+                alert('傳送失敗: ' + err);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
