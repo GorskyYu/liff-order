@@ -3,72 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>規格選擇</title>
+    <title>訂單規格確認</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 flex items-center justify-center">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
-        <h1 id="prodName" class="text-xl font-bold text-gray-800 mb-2">載入中...</h1>
-        <p id="prodPrice" class="text-red-500 font-bold text-2xl mb-6">--</p>
+        <h1 id="prodName" class="text-xl font-bold text-gray-800 mb-2 text-center">載入中...</h1>
+        <p id="prodPrice" class="text-red-500 font-bold text-3xl mb-8 text-center">--</p>
 
-        <div class="mb-6">
-            <label class="block text-gray-600 font-medium mb-2">顏色</label>
-            <div id="colorContainer" class="grid grid-cols-2 gap-2">
+        <div class="space-y-6">
+            <div>
+                <label class="block text-gray-500 text-sm mb-2">顏色</label>
+                <div id="colorContainer" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div>
+                <label class="block text-gray-500 text-sm mb-2">尺寸</label>
+                <div id="sizeContainer" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="flex items-center justify-between border-t pt-6">
+                <span class="text-gray-700 font-medium">下單數量</span>
+                <div class="flex items-center border-2 border-gray-100 rounded-xl overflow-hidden">
+                    <button onclick="updateQty(-1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 active:bg-gray-200">-</button>
+                    <span id="qtyText" class="px-6 py-2 font-bold text-lg min-w-[3.5rem] text-center">1</span>
+                    <button onclick="updateQty(1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 active:bg-gray-200">+</button>
                 </div>
-        </div>
-
-        <div class="mb-6">
-            <label class="block text-gray-600 font-medium mb-2">尺寸</label>
-            <div id="sizeContainer" class="grid grid-cols-2 gap-2">
-                </div>
-        </div>
-
-        <div class="mb-8 flex items-center justify-between border-t pt-6">
-            <span class="text-gray-600 font-medium">下單數量</span>
-            <div class="flex items-center border rounded-lg overflow-hidden">
-                <button onclick="updateQty(-1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-200">-</button>
-                <span id="qtyText" class="px-6 py-2 font-bold min-w-[3rem] text-center">1</span>
-                <button onclick="updateQty(1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-200">+</button>
             </div>
         </div>
 
-        <button onclick="submitOrder()" id="submitBtn" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all">
+        <button onclick="submitOrder()" class="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95">
             確認喊單
         </button>
     </div>
 
     <script>
-        // 核心狀態
-        let state = {
-            uid: '',
-            name: '',
-            price: '',
-            color: '',
-            size: '',
-            qty: 1
-        };
+        let state = { uid: '', name: '', price: '', color: '', size: '', qty: 1 };
 
-        // 解決 liff.state 與 二次編碼問題的強大解析器
+        // 最強大的參數解析器：處理 liff.state 與 多層解碼
         function getParam(name) {
-            const url = window.location.href;
-            const searchParams = new URLSearchParams(window.location.search);
+            const urlObj = new URL(window.location.href);
+            let val = urlObj.searchParams.get(name);
             
-            // 1. 先嘗試直接抓取
-            let val = searchParams.get(name);
-            
-            // 2. 如果抓不到，檢查是否被包在 liff.state 裡面
-            if (!val && searchParams.has('liff.state')) {
-                const liffState = searchParams.get('liff.state');
-                const decodedState = new URLSearchParams(decodeURIComponent(liffState));
-                val = decodedState.get(name);
+            // 處理 liff.state 隱藏參數
+            if (!val && urlObj.searchParams.has('liff.state')) {
+                const stateStr = decodeURIComponent(urlObj.searchParams.get('liff.state'));
+                const stateParams = new URLSearchParams(stateStr.substring(stateStr.indexOf('?')));
+                val = stateParams.get(name);
             }
-            
-            // 3. 處理可能的多次編碼
+
             if (val) {
                 try {
+                    // 執行兩次解碼以應對 double encoding (%25E7...)
                     let decoded = decodeURIComponent(val);
-                    // 再次解碼以應對 double encoding
                     if (decoded.includes('%')) decoded = decodeURIComponent(decoded);
                     return decoded;
                 } catch (e) { return val; }
@@ -76,58 +64,54 @@
             return null;
         }
 
-        // 初始化 LIFF
         async function init() {
             try {
                 await liff.init({ liffId: "2009025778-m8CGWmqW" });
                 if (!liff.isLoggedIn()) {
                     liff.login();
                 } else {
-                    render();
+                    state.uid = getParam('uid') || 'UnknownID';
+                    state.name = getParam('name') || '未知名稱';
+                    state.price = getParam('price') || '0';
+                    
+                    document.getElementById('prodName').innerText = state.name;
+                    document.getElementById('prodPrice').innerText = `$${state.price}`;
+
+                    // 適配你的 URL 參數名：colors 與 sizes
+                    renderButtons('colorContainer', getParam('colors'), 'color');
+                    renderButtons('sizeContainer', getParam('sizes'), 'size');
                 }
             } catch (err) {
-                console.error('LIFF Error:', err);
-                alert('LIFF 初始化失敗，請在 LINE 內開啟');
+                console.error(err);
+                alert('初始化失敗');
             }
         }
 
-        // 渲染 UI
-        function render() {
-            state.uid = getParam('uid') || 'Unknown';
-            state.name = getParam('name') || '未知名稱';
-            state.price = getParam('price') || '0';
-            
-            document.getElementById('prodName').innerText = state.name;
-            document.getElementById('prodPrice').innerText = `$${state.price}`;
-
-            // 動態生成顏色按鈕
-            const colors = getParam('colors') ? getParam('colors').split(',') : [];
-            setupButtons('colorContainer', colors, 'color');
-
-            // 動態生成尺寸按鈕
-            const sizes = getParam('sizes') ? getParam('sizes').split(',') : [];
-            setupButtons('sizeContainer', sizes, 'size');
-        }
-
-        function setupButtons(containerId, items, type) {
+        function renderButtons(containerId, dataStr, type) {
             const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            
+            if (!dataStr) {
+                container.innerHTML = `<span class="text-gray-400 text-sm italic">無可用選項</span>`;
+                return;
+            }
+
+            const items = dataStr.split(',');
             items.forEach(item => {
                 const btn = document.createElement('button');
                 btn.innerText = item;
-                btn.className = "border-2 border-gray-200 rounded-lg py-2 hover:bg-blue-50 transition-all text-sm";
+                btn.className = "px-4 py-2 border-2 border-gray-100 rounded-lg text-sm font-medium transition-all hover:bg-gray-50";
                 btn.onclick = () => {
-                    // 更新狀態
                     state[type] = item;
-                    // 切換樣式
-                    Array.from(container.children).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-600'));
+                    Array.from(container.children).forEach(b => {
+                        b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-600');
+                        b.classList.add('border-gray-100');
+                    });
+                    btn.classList.remove('border-gray-100');
                     btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-600');
                 };
                 container.appendChild(btn);
             });
-            
-            // 如果只有一個選項，自動選取
+
+            // 只有一個選項時自動點擊
             if (items.length === 1) container.firstChild.click();
         }
 
@@ -137,23 +121,19 @@
         }
 
         async function submitOrder() {
+            // 驗證是否已選
             if (!state.color || !state.size) {
-                alert('請選擇完整的顏色與尺寸！');
+                alert('請先選擇顏色與尺寸！');
                 return;
             }
 
             const message = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
 
-            if (!liff.isInClient()) {
-                alert('瀏覽器模擬下單：\n' + message);
-                return;
-            }
-
             try {
                 await liff.sendMessages([{ type: 'text', text: message }]);
                 liff.closeWindow();
             } catch (err) {
-                alert('傳送失敗: ' + err);
+                alert('發送失敗，請重試');
             }
         }
 
