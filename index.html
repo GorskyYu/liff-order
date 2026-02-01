@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Page</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-4 text-gray-800" id="product-name">Loading...</h1>
+        <p class="text-xl text-gray-600 mb-6" id="product-price"></p>
+        
+        <div class="mb-6">
+            <label class="block text-gray-700 font-medium mb-2">Color</label>
+            <div class="flex gap-4">
+                <button onclick="selectColor('Silver')" id="btn-silver" class="flex-1 py-2 px-4 rounded border border-gray-300 transition-colors">Silver</button>
+                <button onclick="selectColor('Black')" id="btn-black" class="flex-1 py-2 px-4 rounded border border-gray-300 transition-colors">Black</button>
+            </div>
+        </div>
+
+        <div class="mb-6">
+             <label class="block text-gray-700 font-medium mb-2">Size</label>
+             <div class="flex gap-4">
+                <button onclick="selectSize('15 inch')" id="btn-15" class="flex-1 py-2 px-4 rounded border border-gray-300 transition-colors">15 inch</button>
+                <button onclick="selectSize('16 inch')" id="btn-16" class="flex-1 py-2 px-4 rounded border border-gray-300 transition-colors">16 inch</button>
+             </div>
+        </div>
+
+        <div class="mb-8">
+            <label class="block text-gray-700 font-medium mb-2 text-center">Quantity</label>
+            <div class="flex items-center justify-center border border-gray-300 rounded overflow-hidden">
+                <button onclick="updateQuantity(-1)" class="px-6 py-3 bg-gray-100 hover:bg-gray-200 font-bold">-</button>
+                <input type="text" id="quantity" value="1" readonly class="w-16 text-center text-xl font-bold focus:outline-none">
+                <button onclick="updateQuantity(1)" class="px-6 py-3 bg-gray-100 hover:bg-gray-200 font-bold">+</button>
+            </div>
+        </div>
+
+        <button onclick="submitOrder()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg active:scale-95">
+            Confirm Order
+        </button>
+    </div>
+
+    <script>
+        let state = {
+            uid: '',
+            name: '',
+            price: '',
+            color: 'Silver',
+            size: '15 inch',
+            quantity: 1
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 已填入你的 LIFF ID
+            liff.init({ liffId: "2009025778-m8CGWmqW" })
+                .then(() => { 
+                    if (!liff.isLoggedIn()) { liff.login(); }
+                })
+                .catch((err) => { console.error('LIFF Init failed', err); });
+
+            const urlParams = new URLSearchParams(window.location.search);
+            state.uid = urlParams.get('uid') || 'test_item';
+            state.name = urlParams.get('name') || 'Dell Inspiron';
+            state.price = urlParams.get('price') || '4568';
+            
+            // 從網址讀取預設規格 (如果有傳入的話)
+            if(urlParams.get('color')) state.color = urlParams.get('color');
+            if(urlParams.get('size')) state.size = urlParams.get('size');
+
+            document.getElementById('product-name').textContent = state.name;
+            document.getElementById('product-price').textContent = `$${state.price}`;
+
+            updateUI();
+        });
+
+        function selectColor(color) { state.color = color; updateUI(); }
+        function selectSize(size) { state.size = size; updateUI(); }
+
+        function updateUI() {
+            // 更新按鈕樣式
+            const active = "flex-1 py-2 px-4 rounded bg-blue-600 border border-blue-600 text-white shadow";
+            const inactive = "flex-1 py-2 px-4 rounded border border-gray-300 hover:bg-gray-50";
+            
+            document.getElementById('btn-silver').className
