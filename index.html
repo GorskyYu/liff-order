@@ -80,10 +80,93 @@
                     // 適配你的 URL 參數名：colors 與 sizes
                     renderButtons('colorContainer', getParam('colors'), 'color');
                     renderButtons('sizeContainer', getParam('sizes'), 'size');
+
+                    // Check for share action
+                    const action = getParam('action');
+                    if (action === 'share' && liff.isApiAvailable('shareTargetPicker')) {
+                        await shareProduct();
+                        // shareProduct calls closeWindow on success, but if user cancels, we stay on page.
+                    }
                 }
             } catch (err) {
                 console.error(err);
                 alert('初始化失敗');
+            }
+        }
+
+        async function shareProduct() {
+             const currentUrl = new URL(window.location.href);
+             currentUrl.searchParams.delete('action');
+             const safeUrl = currentUrl.toString();
+
+             const flexContent = {
+                type: "bubble",
+                size: "mega",
+                body: {
+                    type: "box",
+                    layout: "vertical",
+                    contents: [
+                        { type: "text", text: "推薦商品", weight: "bold", color: "#1DB446", size: "xs" },
+                        { type: "text", text: state.name, weight: "bold", size: "xl", margin: "md", wrap: true },
+                        { type: "text", text: `$${state.price}`, size: "xl", weight: "bold", margin: "md", color: "#ff5551" },
+                        {
+                            type: "box",
+                            layout: "vertical",
+                            margin: "md",
+                            spacing: "sm",
+                            contents: [
+                                {
+                                    type: "box",
+                                    layout: "baseline",
+                                    spacing: "sm",
+                                    contents: [
+                                        { type: "text", text: "顏色", color: "#aaaaaa", size: "sm", flex: 1 },
+                                        { type: "text", text: state.color || "未選", wrap: true, color: "#666666", size: "sm", flex: 5 }
+                                    ]
+                                },
+                                {
+                                    type: "box",
+                                    layout: "baseline",
+                                    spacing: "sm",
+                                    contents: [
+                                        { type: "text", text: "尺寸", color: "#aaaaaa", size: "sm", flex: 1 },
+                                        { type: "text", text: state.size || "未選", wrap: true, color: "#666666", size: "sm", flex: 5 }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                footer: {
+                    type: "box",
+                    layout: "vertical",
+                    spacing: "sm",
+                    contents: [
+                        {
+                            type: "button",
+                            style: "primary",
+                            height: "sm",
+                            action: {
+                                type: "uri",
+                                label: "查看商品",
+                                uri: safeUrl
+                            }
+                        }
+                    ]
+                }
+            };
+            
+            try {
+                const res = await liff.shareTargetPicker([{
+                    type: "flex",
+                    altText: `分享商品: ${state.name}`,
+                    contents: flexContent
+                }]);
+                if (res) {
+                    liff.closeWindow();
+                }
+            } catch (error) {
+                console.error('Share failed', error);
             }
         }
 
