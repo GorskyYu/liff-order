@@ -70,23 +70,31 @@
                 if (!liff.isLoggedIn()) {
                     liff.login();
                 } else {
+                    // 1. 先抓取所有基本參數
                     state.uid = getParam('uid') || 'UnknownID';
                     state.name = getParam('name') || '未知名稱';
                     state.price = getParam('price') || '0';
-                    
+
+                    // 2. 檢查是否有分享指令 (關鍵修正)
+                    const action = getParam('action');
+                    if (action === 'share') {
+                        // 如果是分享模式，隱藏主容器避免閃爍，並直接觸發分享選單
+                        document.querySelector('.bg-white').style.opacity = '0'; 
+                        
+                        // 檢查是否支援分享
+                        if (liff.isApiAvailable('shareTargetPicker')) {
+                            await shareProduct();
+                        } else {
+                            alert('此環境不支援分享功能');
+                        }
+                        return; // 終止後續渲染，直接關閉或等待分享結束
+                    }
+
+                    // 3. 正常模式：渲染 UI
                     document.getElementById('prodName').innerText = state.name;
                     document.getElementById('prodPrice').innerText = `$${state.price}`;
-
-                    // 適配你的 URL 參數名：colors 與 sizes
                     renderButtons('colorContainer', getParam('colors'), 'color');
                     renderButtons('sizeContainer', getParam('sizes'), 'size');
-
-                    // Check for share action
-                    const action = getParam('action');
-                    if (action === 'share' && liff.isApiAvailable('shareTargetPicker')) {
-                        await shareProduct();
-                        // shareProduct calls closeWindow on success, but if user cancels, we stay on page.
-                    }
                 }
             } catch (err) {
                 console.error(err);
