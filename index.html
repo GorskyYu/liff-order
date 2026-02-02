@@ -89,8 +89,10 @@
 
         function renderButtons(containerId, dataStr, type) {
             const container = document.getElementById(containerId);
-            if (!dataStr) {
+            // Fix: Handle empty or 'none' dataStr by defaulting to 'None' and skipping rendering buttons
+            if (!dataStr || dataStr.toLowerCase() === 'none') {
                 container.innerHTML = `<span class="text-gray-400 text-sm italic">無可用選項</span>`;
+                state[type] = 'None';
                 return;
             }
 
