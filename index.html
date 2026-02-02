@@ -95,9 +95,21 @@
         }
 
         async function shareProduct() {
-             const currentUrl = new URL(window.location.href);
-             currentUrl.searchParams.delete('action');
-             const safeUrl = currentUrl.toString();
+             // URL 參數清洗：重建不包含 action 的乾淨 URL
+             // 使用白名單方式重建參數，確保排除 action 與 liff.state 中的殘留指令
+             const baseUrl = window.location.href.split('?')[0];
+             const safeParams = new URLSearchParams();
+             
+             // 定義需要保留的參數欄位
+             // 必須包含頁面渲染所需的所有資訊: uid, name, price, colors, sizes
+             const keepFields = ['uid', 'name', 'price', 'colors', 'sizes'];
+             
+             keepFields.forEach(field => {
+                 const val = getParam(field);
+                 if (val) safeParams.append(field, val);
+             });
+             
+             const safeUrl = `${baseUrl}?${safeParams.toString()}`;
 
              const flexContent = {
                 type: "bubble",
@@ -107,8 +119,8 @@
                     layout: "vertical",
                     contents: [
                         { type: "text", text: "推薦商品", weight: "bold", color: "#1DB446", size: "xs" },
-                        { type: "text", text: state.name, weight: "bold", size: "xl", margin: "md", wrap: true },
-                        { type: "text", text: `$${state.price}`, size: "xl", weight: "bold", margin: "md", color: "#ff5551" },
+                        { type: "text", text: state.name || "商品", weight: "bold", size: "xl", margin: "md", wrap: true },
+                        { type: "text", text: `$${state.price || 0}`, size: "xl", weight: "bold", margin: "md", color: "#ff5551" },
                         {
                             type: "box",
                             layout: "vertical",
@@ -148,7 +160,7 @@
                             height: "sm",
                             action: {
                                 type: "uri",
-                                label: "查看商品",
+                                label: "立即購買",
                                 uri: safeUrl
                             }
                         }
@@ -159,7 +171,7 @@
             try {
                 const res = await liff.shareTargetPicker([{
                     type: "flex",
-                    altText: `分享商品: ${state.name}`,
+                    altText: `分享商品: ${state.name || '推薦商品'}`,
                     contents: flexContent
                 }]);
                 if (res) {
@@ -167,6 +179,7 @@
                 }
             } catch (error) {
                 console.error('Share failed', error);
+                // alert('分享功能暫時無法使用'); // Optional
             }
         }
 
