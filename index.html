@@ -87,21 +87,32 @@
                 await liff.init({ liffId: "2009025778-m8CGWmqW" });
                 if (!liff.isLoggedIn()) {
                     liff.login();
-                } else {
-                    const page = getParam('page');
-                    const userId = liff.getContext().userId;
-
-                    if (page === 'history') {
-                        document.getElementById('historyView').classList.remove('hidden');
-                        loadOrderHistory(userId);
-                    } else if (page === 'delivery') {
-                        document.getElementById('deliveryView').classList.remove('hidden');
-                    } else {
-                        document.getElementById('quickOrderView').classList.remove('hidden');
-                        renderQuickOrder();
-                    }
+                    return;
                 }
-            } catch (err) { console.error(err); }
+
+                // 取得使用者資料 (解決 Staging ID 問題)
+                const profile = await liff.getProfile();
+                const userId = profile.userId;
+
+                const page = getParam('page');
+
+                if (page === 'history') {
+                    document.getElementById('historyView').classList.remove('hidden');
+                    loadOrderHistory(userId);
+                } else if (page === 'delivery') {
+                    document.getElementById('deliveryView').classList.remove('hidden');
+                } else {
+                    document.getElementById('quickOrderView').classList.remove('hidden');
+                    renderQuickOrder();
+                }
+            } catch (err) { 
+                console.error('LIFF Init Error:', err);
+                document.body.innerHTML = `<div class="p-8 text-center bg-white rounded-xl shadow-xl">
+                    <p class="text-red-500 font-bold text-xl mb-4">無法驗證身分</p>
+                    <p class="text-gray-600 mb-4">${err.message}</p>
+                    <button onclick="window.location.reload()" class="bg-blue-500 text-white px-4 py-2 rounded-lg">重試</button>
+                </div>`;
+            }
         }
 
         // --- 歷史訂單邏輯 ---
