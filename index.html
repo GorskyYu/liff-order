@@ -3,12 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>訂單規格確認</title>
+    <title>24/7oncall 客戶中心</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        /* 簡單的載入動畫 */
+        .loader { border-top-color: #3498db; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4 flex items-center justify-center">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div id="quickOrderView" class="hidden bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
         <h1 id="prodName" class="text-xl font-bold text-gray-800 mb-2 text-center">載入中...</h1>
         <p id="prodPrice" class="text-red-500 font-bold text-3xl mb-8 text-center">--</p>
 
@@ -17,45 +23,57 @@
                 <label class="block text-gray-500 text-sm mb-2">顏色</label>
                 <div id="colorContainer" class="flex flex-wrap gap-2"></div>
             </div>
-
             <div>
                 <label class="block text-gray-500 text-sm mb-2">尺寸</label>
                 <div id="sizeContainer" class="flex flex-wrap gap-2"></div>
             </div>
-
             <div class="flex items-center justify-between border-t pt-6">
                 <span class="text-gray-700 font-medium">下單數量</span>
                 <div class="flex items-center border-2 border-gray-100 rounded-xl overflow-hidden">
-                    <button onclick="updateQty(-1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 active:bg-gray-200">-</button>
+                    <button onclick="updateQty(-1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100">-</button>
                     <span id="qtyText" class="px-6 py-2 font-bold text-lg min-w-[3.5rem] text-center">1</span>
-                    <button onclick="updateQty(1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100 active:bg-gray-200">+</button>
+                    <button onclick="updateQty(1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100">+</button>
                 </div>
             </div>
         </div>
-
         <button onclick="submitOrder()" class="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95">
             確認喊單
         </button>
     </div>
 
+    <div id="historyView" class="hidden w-full max-w-md space-y-4">
+        <div class="bg-blue-600 text-white p-6 rounded-2xl shadow-lg mb-6">
+            <p class="text-sm opacity-80 text-center">目前待付款總額</p>
+            <h2 id="unpaidTotal" class="text-3xl font-bold font-mono text-center">$ --</h2>
+        </div>
+        <div id="orderList" class="space-y-3">
+            </div>
+    </div>
+
+    <div id="deliveryView" class="hidden w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-xl p-6">
+            <h2 class="text-xl font-bold mb-4">配送進度</h2>
+            <div id="deliveryList" class="space-y-4 text-gray-500 text-center py-10">
+                功能開發中，敬請期待...
+            </div>
+        </div>
+    </div>
+
     <script>
         let state = { uid: '', name: '', price: '', color: '', size: '', qty: 1 };
+        // 請將此處改為您部署在 Heroku 的 API 網址
+        const API_BASE_URL = "https://tracking-line-prod.herokuapp.com";
 
-        // 最強大的參數解析器：處理 liff.state 與 多層解碼
         function getParam(name) {
             const urlObj = new URL(window.location.href);
             let val = urlObj.searchParams.get(name);
-            
-            // 處理 liff.state 隱藏參數
             if (!val && urlObj.searchParams.has('liff.state')) {
                 const stateStr = decodeURIComponent(urlObj.searchParams.get('liff.state'));
                 const stateParams = new URLSearchParams(stateStr.substring(stateStr.indexOf('?')));
                 val = stateParams.get(name);
             }
-
             if (val) {
                 try {
-                    // 執行兩次解碼以應對 double encoding (%25E7...)
                     let decoded = decodeURIComponent(val);
                     if (decoded.includes('%')) decoded = decodeURIComponent(decoded);
                     return decoded;
@@ -70,154 +88,97 @@
                 if (!liff.isLoggedIn()) {
                     liff.login();
                 } else {
-                    // 1. 先抓取所有基本參數
-                    state.uid = getParam('uid') || 'UnknownID';
-                    state.name = getParam('name') || '未知名稱';
-                    state.price = getParam('price') || '0';
+                    const page = getParam('page');
+                    const userId = liff.getContext().userId;
 
-                    // 2. 檢查是否有分享指令 (關鍵修正)
-                    const action = getParam('action');
-                    if (action === 'share') {
-                        // 如果是分享模式，隱藏主容器避免閃爍，並直接觸發分享選單
-                        document.querySelector('.bg-white').style.opacity = '0'; 
-                        
-                        // 檢查是否支援分享
-                        if (liff.isApiAvailable('shareTargetPicker')) {
-                            await shareProduct();
-                        } else {
-                            alert('此環境不支援分享功能');
-                        }
-                        return; // 終止後續渲染，直接關閉或等待分享結束
+                    if (page === 'history') {
+                        document.getElementById('historyView').classList.remove('hidden');
+                        loadOrderHistory(userId);
+                    } else if (page === 'delivery') {
+                        document.getElementById('deliveryView').classList.remove('hidden');
+                    } else {
+                        document.getElementById('quickOrderView').classList.remove('hidden');
+                        renderQuickOrder();
                     }
-
-                    // 3. 正常模式：渲染 UI
-                    document.getElementById('prodName').innerText = state.name;
-                    document.getElementById('prodPrice').innerText = `$${state.price}`;
-                    renderButtons('colorContainer', getParam('colors'), 'color');
-                    renderButtons('sizeContainer', getParam('sizes'), 'size');
                 }
-            } catch (err) {
-                console.error(err);
-                alert('初始化失敗');
-            }
+            } catch (err) { console.error(err); }
         }
 
-        async function shareProduct() {
-             // URL 參數清洗：重建不包含 action 的乾淨 URL
-             // 使用白名單方式重建參數，確保排除 action 與 liff.state 中的殘留指令
-             const baseUrl = window.location.href.split('?')[0];
-             const safeParams = new URLSearchParams();
-             
-             // 定義需要保留的參數欄位
-             // 必須包含頁面渲染所需的所有資訊: uid, name, price, colors, sizes
-             const keepFields = ['uid', 'name', 'price', 'colors', 'sizes'];
-             
-             keepFields.forEach(field => {
-                 const val = getParam(field);
-                 if (val) safeParams.append(field, val);
-             });
-             
-             const safeUrl = `${baseUrl}?${safeParams.toString()}`;
-
-             const flexContent = {
-                type: "bubble",
-                size: "mega",
-                body: {
-                    type: "box",
-                    layout: "vertical",
-                    contents: [
-                        { type: "text", text: "推薦商品", weight: "bold", color: "#1DB446", size: "xs" },
-                        { type: "text", text: state.name || "商品", weight: "bold", size: "xl", margin: "md", wrap: true },
-                        { type: "text", text: `$${state.price || 0}`, size: "xl", weight: "bold", margin: "md", color: "#ff5551" },
-                        {
-                            type: "box",
-                            layout: "vertical",
-                            margin: "md",
-                            spacing: "sm",
-                            contents: [
-                                {
-                                    type: "box",
-                                    layout: "baseline",
-                                    spacing: "sm",
-                                    contents: [
-                                        { type: "text", text: "顏色", color: "#aaaaaa", size: "sm", flex: 1 },
-                                        { type: "text", text: state.color || "未選", wrap: true, color: "#666666", size: "sm", flex: 5 }
-                                    ]
-                                },
-                                {
-                                    type: "box",
-                                    layout: "baseline",
-                                    spacing: "sm",
-                                    contents: [
-                                        { type: "text", text: "尺寸", color: "#aaaaaa", size: "sm", flex: 1 },
-                                        { type: "text", text: state.size || "未選", wrap: true, color: "#666666", size: "sm", flex: 5 }
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                },
-                footer: {
-                    type: "box",
-                    layout: "vertical",
-                    spacing: "sm",
-                    contents: [
-                        {
-                            type: "button",
-                            style: "primary",
-                            height: "sm",
-                            action: {
-                                type: "uri",
-                                label: "立即購買",
-                                uri: safeUrl
-                            }
-                        }
-                    ]
-                }
-            };
-            
+        // --- 歷史訂單邏輯 ---
+        async function loadOrderHistory(userId) {
+            const listContainer = document.getElementById('orderList');
             try {
-                const res = await liff.shareTargetPicker([{
-                    type: "flex",
-                    altText: `分享商品: ${state.name || '推薦商品'}`,
-                    contents: flexContent
-                }]);
-                if (res) {
-                    liff.closeWindow();
+                const response = await fetch(`${API_BASE_URL}/api/orders/${userId}`);
+                const data = await response.json();
+
+                // 處理待付款總額 (取絕對值並加上千分位)
+                const total = Math.abs(data.unpaid_total || 0);
+                document.getElementById('unpaidTotal').innerText = `$${total.toLocaleString()}`;
+
+                if (!data.orders || data.orders.length === 0) {
+                    listContainer.innerHTML = '<p class="text-center text-gray-400 py-10">尚無紀錄</p>';
+                    return;
                 }
-            } catch (error) {
-                console.error('Share failed', error);
-                // alert('分享功能暫時無法使用'); // Optional
+
+                listContainer.innerHTML = data.orders.map(order => `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] text-gray-400 font-mono">${order.order_no}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] ${order.status === 'unpaid' ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}">
+                                ${order.status === 'unpaid' ? '待付款' : '已結清'}
+                            </span>
+                        </div>
+                        <div class="space-y-1 mb-2">
+                            ${order.items.map(item => `
+                                <div class="flex justify-between text-sm italic">
+                                    <span class="text-gray-600">${item.name} x${item.qty}</span>
+                                    <span class="text-gray-900">$${item.price}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-50 text-[10px]">
+                            <span class="text-gray-400">${order.date}</span>
+                            <span class="text-gray-900 font-bold text-sm">$${Math.abs(order.total).toLocaleString()}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                listContainer.innerHTML = '<p class="text-center text-red-400">連線 API 失敗</p>';
             }
         }
 
+        // --- 原有的喊單渲染邏輯 ---
+        function renderQuickOrder() {
+            state.uid = getParam('uid') || 'Unknown';
+            state.name = getParam('name') || '商品';
+            state.price = getParam('price') || '0';
+            
+            document.getElementById('prodName').innerText = state.name;
+            document.getElementById('prodPrice').innerText = `$${state.price}`;
+            renderButtons('colorContainer', getParam('colors'), 'color');
+            renderButtons('sizeContainer', getParam('sizes'), 'size');
+        }
+
+        // ... 保留您原本的 renderButtons, updateQty, submitOrder 函式 ...
         function renderButtons(containerId, dataStr, type) {
             const container = document.getElementById(containerId);
-            // Fix: Handle empty or 'none' dataStr by defaulting to 'None' and skipping rendering buttons
             if (!dataStr || dataStr.toLowerCase() === 'none') {
-                container.innerHTML = `<span class="text-gray-400 text-sm italic">無可用選項</span>`;
+                container.innerHTML = `<span class="text-gray-400 text-sm">無</span>`;
                 state[type] = 'None';
                 return;
             }
-
             const items = dataStr.split(',');
             items.forEach(item => {
                 const btn = document.createElement('button');
                 btn.innerText = item;
-                btn.className = "px-4 py-2 border-2 border-gray-100 rounded-lg text-sm font-medium transition-all hover:bg-gray-50";
+                btn.className = "px-4 py-2 border-2 border-gray-100 rounded-lg text-sm transition-all";
                 btn.onclick = () => {
                     state[type] = item;
-                    Array.from(container.children).forEach(b => {
-                        b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-600');
-                        b.classList.add('border-gray-100');
-                    });
-                    btn.classList.remove('border-gray-100');
-                    btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-600');
+                    Array.from(container.children).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50'));
+                    btn.classList.add('border-blue-500', 'bg-blue-50');
                 };
                 container.appendChild(btn);
             });
-
-            // 只有一個選項時自動點擊
             if (items.length === 1) container.firstChild.click();
         }
 
@@ -227,20 +188,10 @@
         }
 
         async function submitOrder() {
-            // 驗證是否已選
-            if (!state.color || !state.size) {
-                alert('請先選擇顏色與尺寸！');
-                return;
-            }
-
-            const message = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
-
-            try {
-                await liff.sendMessages([{ type: 'text', text: message }]);
-                liff.closeWindow();
-            } catch (err) {
-                alert('發送失敗，請重試');
-            }
+            if (!state.color || !state.size) return alert('請完整選擇');
+            const msg = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
+            await liff.sendMessages([{ type: 'text', text: msg }]);
+            liff.closeWindow();
         }
 
         init();
