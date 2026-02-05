@@ -1,159 +1,200 @@
-<script>
-    let state = { uid: '', name: '', price: '', color: '', size: '', qty: 1 };
-    const API_BASE_URL = "https://tracking-line-prod-48e7277f81cf.herokuapp.com";
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>24/7oncall 客戶中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        /* 簡單的載入動畫 */
+        .loader { border-top-color: #3498db; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
-    function getParam(name) {
-        const urlObj = new URL(window.location.href);
-        let val = urlObj.searchParams.get(name);
-        if (!val && urlObj.searchParams.has('liff.state')) {
-            const stateStr = decodeURIComponent(urlObj.searchParams.get('liff.state'));
-            const stateParams = new URLSearchParams(stateStr.substring(stateStr.indexOf('?')));
-            val = stateParams.get(name);
-        }
-        if (val) {
-            try {
-                let decoded = decodeURIComponent(val);
-                if (decoded.includes('%')) decoded = decodeURIComponent(decoded);
-                return decoded;
-            } catch (e) { return val; }
-        }
-        return null;
-    }
+    <div id="quickOrderView" class="hidden bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+        <h1 id="prodName" class="text-xl font-bold text-gray-800 mb-2 text-center">載入中...</h1>
+        <p id="prodPrice" class="text-red-500 font-bold text-3xl mb-8 text-center">--</p>
 
-    async function init() {
-        console.log("LIFF Starting...");
-        try {
-            await liff.init({ liffId: "2009025778-m8CGWmqW" });
-            
-            if (!liff.isLoggedIn()) {
-                console.log("User not logged in, redirecting to login...");
-                liff.login();
-                return;
-            }
-
-            // --- 關鍵修改：動態取得 UID ---
-            const profile = await liff.getProfile();
-            const currentUserId = profile.userId; 
-            console.log("Current User ID Detected:", currentUserId);
-
-            const page = getParam('page');
-            console.log("Current Page Type:", page);
-
-            if (page === 'history') {
-                document.getElementById('historyView').classList.remove('hidden');
-                // 確保傳入的是當前 profile 的 userId
-                loadOrderHistory(currentUserId); 
-            } else if (page === 'delivery') {
-                document.getElementById('deliveryView').classList.remove('hidden');
-            } else {
-                document.getElementById('quickOrderView').classList.remove('hidden');
-                renderQuickOrder();
-            }
-        } catch (err) { 
-            console.error('LIFF Init Error:', err);
-            document.body.innerHTML = `
-                <div class="p-8 text-center bg-white rounded-xl shadow-xl">
-                    <p class="text-red-500 font-bold text-xl mb-4">無法驗證身分</p>
-                    <p class="text-gray-600 mb-4">${err.message}</p>
-                    <button onclick="window.location.reload()" class="bg-blue-500 text-white px-4 py-2 rounded-lg">重試</button>
-                </div>`;
-        }
-    }
-
-    async function loadOrderHistory(targetUserId) {
-        const listContainer = document.getElementById('orderList');
-        console.log("Fetching orders for:", targetUserId);
-        
-        try {
-            // 使用傳入的動態 UID 構建 API URL
-            const fetchUrl = `${API_BASE_URL}/api/orders/${targetUserId}`;
-            console.log("API Request URL:", fetchUrl);
-
-            const response = await fetch(fetchUrl);
-            const data = await response.json();
-            console.log("API Response Data:", data);
-
-            const total = Math.abs(data.unpaid_total || 0);
-            document.getElementById('unpaidTotal').innerText = `$${total.toLocaleString()}`;
-
-            if (!data.orders || data.orders.length === 0) {
-                listContainer.innerHTML = '<p class="text-center text-gray-400 py-10">尚無紀錄</p>';
-                return;
-            }
-
-            listContainer.innerHTML = data.orders.map(order => `
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-[10px] text-gray-400 font-mono">${order.order_no}</span>
-                        <span class="px-2 py-0.5 rounded text-[10px] ${order.status === 'unpaid' ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}">
-                            ${order.status === 'unpaid' ? '待付款' : '已結清'}
-                        </span>
-                    </div>
-                    <div class="space-y-1 mb-2">
-                        ${order.items.map(item => `
-                            <div class="flex justify-between text-sm italic">
-                                <span class="text-gray-600">${item.name} x${item.qty}</span>
-                                <span class="text-gray-900">$${item.price}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="flex justify-between items-center pt-2 border-t border-gray-50 text-[10px]">
-                        <span class="text-gray-400">${order.date}</span>
-                        <span class="text-gray-900 font-bold text-sm">$${Math.abs(order.total).toLocaleString()}</span>
-                    </div>
+        <div class="space-y-6">
+            <div>
+                <label class="block text-gray-500 text-sm mb-2">顏色</label>
+                <div id="colorContainer" class="flex flex-wrap gap-2"></div>
+            </div>
+            <div>
+                <label class="block text-gray-500 text-sm mb-2">尺寸</label>
+                <div id="sizeContainer" class="flex flex-wrap gap-2"></div>
+            </div>
+            <div class="flex items-center justify-between border-t pt-6">
+                <span class="text-gray-700 font-medium">下單數量</span>
+                <div class="flex items-center border-2 border-gray-100 rounded-xl overflow-hidden">
+                    <button onclick="updateQty(-1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100">-</button>
+                    <span id="qtyText" class="px-6 py-2 font-bold text-lg min-w-[3.5rem] text-center">1</span>
+                    <button onclick="updateQty(1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100">+</button>
                 </div>
-            `).join('');
-        } catch (e) {
-            console.error("Fetch API Error:", e);
-            listContainer.innerHTML = '<p class="text-center text-red-400">連線 API 失敗</p>';
+            </div>
+        </div>
+        <button onclick="submitOrder()" class="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95">
+            確認喊單
+        </button>
+    </div>
+
+    <div id="historyView" class="hidden w-full max-w-md space-y-4">
+        <div class="bg-blue-600 text-white p-6 rounded-2xl shadow-lg mb-6">
+            <p class="text-sm opacity-80 text-center">目前待付款總額</p>
+            <h2 id="unpaidTotal" class="text-3xl font-bold font-mono text-center">$ --</h2>
+        </div>
+        <div id="orderList" class="space-y-3">
+            </div>
+    </div>
+
+    <div id="deliveryView" class="hidden w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-xl p-6">
+            <h2 class="text-xl font-bold mb-4">配送進度</h2>
+            <div id="deliveryList" class="space-y-4 text-gray-500 text-center py-10">
+                功能開發中，敬請期待...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = { uid: '', name: '', price: '', color: '', size: '', qty: 1 };
+        // 請將此處改為您部署在 Heroku 的 API 網址
+        const API_BASE_URL = "https://tracking-line-prod-48e7277f81cf.herokuapp.com";
+
+        function getParam(name) {
+            const urlObj = new URL(window.location.href);
+            let val = urlObj.searchParams.get(name);
+            if (!val && urlObj.searchParams.has('liff.state')) {
+                const stateStr = decodeURIComponent(urlObj.searchParams.get('liff.state'));
+                const stateParams = new URLSearchParams(stateStr.substring(stateStr.indexOf('?')));
+                val = stateParams.get(name);
+            }
+            if (val) {
+                try {
+                    let decoded = decodeURIComponent(val);
+                    if (decoded.includes('%')) decoded = decodeURIComponent(decoded);
+                    return decoded;
+                } catch (e) { return val; }
+            }
+            return null;
         }
-    }
 
-    // ... (保留其餘 renderQuickOrder, renderButtons, updateQty, submitOrder) ...
-    function renderQuickOrder() {
-        state.uid = getParam('uid') || 'Unknown';
-        state.name = getParam('name') || '商品';
-        state.price = getParam('price') || '0';
-        
-        document.getElementById('prodName').innerText = state.name;
-        document.getElementById('prodPrice').innerText = `$${state.price}`;
-        renderButtons('colorContainer', getParam('colors'), 'color');
-        renderButtons('sizeContainer', getParam('sizes'), 'size');
-    }
+        async function init() {
+            try {
+                await liff.init({ liffId: "2009061767-yr41hYAj" });
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                } else {
+                    const page = getParam('page');
+                    const userId = liff.getContext().userId;
 
-    function renderButtons(containerId, dataStr, type) {
-        const container = document.getElementById(containerId);
-        if (!dataStr || dataStr.toLowerCase() === 'none') {
-            container.innerHTML = `<span class="text-gray-400 text-sm">無</span>`;
-            state[type] = 'None';
-            return;
+                    if (page === 'history') {
+                        document.getElementById('historyView').classList.remove('hidden');
+                        loadOrderHistory(userId);
+                    } else if (page === 'delivery') {
+                        document.getElementById('deliveryView').classList.remove('hidden');
+                    } else {
+                        document.getElementById('quickOrderView').classList.remove('hidden');
+                        renderQuickOrder();
+                    }
+                }
+            } catch (err) { console.error(err); }
         }
-        const items = dataStr.split(',');
-        items.forEach(item => {
-            const btn = document.createElement('button');
-            btn.innerText = item;
-            btn.className = "px-4 py-2 border-2 border-gray-100 rounded-lg text-sm transition-all";
-            btn.onclick = () => {
-                state[type] = item;
-                Array.from(container.children).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50'));
-                btn.classList.add('border-blue-500', 'bg-blue-50');
-            };
-            container.appendChild(btn);
-        });
-        if (items.length === 1) container.firstChild.click();
-    }
 
-    function updateQty(n) {
-        state.qty = Math.max(1, state.qty + n);
-        document.getElementById('qtyText').innerText = state.qty;
-    }
+        // --- 歷史訂單邏輯 ---
+        async function loadOrderHistory(userId) {
+            const listContainer = document.getElementById('orderList');
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/orders/${userId}`);
+                const data = await response.json();
 
-    async function submitOrder() {
-        if (!state.color || !state.size) return alert('請完整選擇');
-        const msg = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
-        await liff.sendMessages([{ type: 'text', text: msg }]);
-        liff.closeWindow();
-    }
+                // 處理待付款總額 (取絕對值並加上千分位)
+                const total = Math.abs(data.unpaid_total || 0);
+                document.getElementById('unpaidTotal').innerText = `$${total.toLocaleString()}`;
 
-    init();
-</script>
+                if (!data.orders || data.orders.length === 0) {
+                    listContainer.innerHTML = '<p class="text-center text-gray-400 py-10">尚無紀錄</p>';
+                    return;
+                }
+
+                listContainer.innerHTML = data.orders.map(order => `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] text-gray-400 font-mono">${order.order_no}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] ${order.status === 'unpaid' ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}">
+                                ${order.status === 'unpaid' ? '待付款' : '已結清'}
+                            </span>
+                        </div>
+                        <div class="space-y-1 mb-2">
+                            ${order.items.map(item => `
+                                <div class="flex justify-between text-sm italic">
+                                    <span class="text-gray-600">${item.name} x${item.qty}</span>
+                                    <span class="text-gray-900">$${item.price}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-50 text-[10px]">
+                            <span class="text-gray-400">${order.date}</span>
+                            <span class="text-gray-900 font-bold text-sm">$${Math.abs(order.total).toLocaleString()}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                listContainer.innerHTML = '<p class="text-center text-red-400">連線 API 失敗</p>';
+            }
+        }
+
+        // --- 原有的喊單渲染邏輯 ---
+        function renderQuickOrder() {
+            state.uid = getParam('uid') || 'Unknown';
+            state.name = getParam('name') || '商品';
+            state.price = getParam('price') || '0';
+            
+            document.getElementById('prodName').innerText = state.name;
+            document.getElementById('prodPrice').innerText = `$${state.price}`;
+            renderButtons('colorContainer', getParam('colors'), 'color');
+            renderButtons('sizeContainer', getParam('sizes'), 'size');
+        }
+
+        // ... 保留您原本的 renderButtons, updateQty, submitOrder 函式 ...
+        function renderButtons(containerId, dataStr, type) {
+            const container = document.getElementById(containerId);
+            if (!dataStr || dataStr.toLowerCase() === 'none') {
+                container.innerHTML = `<span class="text-gray-400 text-sm">無</span>`;
+                state[type] = 'None';
+                return;
+            }
+            const items = dataStr.split(',');
+            items.forEach(item => {
+                const btn = document.createElement('button');
+                btn.innerText = item;
+                btn.className = "px-4 py-2 border-2 border-gray-100 rounded-lg text-sm transition-all";
+                btn.onclick = () => {
+                    state[type] = item;
+                    Array.from(container.children).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50'));
+                    btn.classList.add('border-blue-500', 'bg-blue-50');
+                };
+                container.appendChild(btn);
+            });
+            if (items.length === 1) container.firstChild.click();
+        }
+
+        function updateQty(n) {
+            state.qty = Math.max(1, state.qty + n);
+            document.getElementById('qtyText').innerText = state.qty;
+        }
+
+        async function submitOrder() {
+            if (!state.color || !state.size) return alert('請完整選擇');
+            const msg = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
+            await liff.sendMessages([{ type: 'text', text: msg }]);
+            liff.closeWindow();
+        }
+
+        init();
+    </script>
+</body>
+</html>
