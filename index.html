@@ -94,9 +94,95 @@
             return null;
         }
 
+        async function handleShare() {
+            const uid = getParam('uid');
+            const name = getParam('name') || '商品';
+            const price = getParam('price') || '0';
+            const image = getParam('image');
+
+            if (!liff.isApiAvailable('shareTargetPicker')) {
+                alert('您的 LINE 版本不支援分享功能，或未開啟 Share Target Picker 權限');
+                document.getElementById('quickOrderView').classList.remove('hidden');
+                renderQuickOrder();
+                return;
+            }
+
+            // Remove action=share from the URL for the Buy Now button
+            const dbUrl = new URL(window.location.href);
+            dbUrl.searchParams.delete('action');
+            const buyUrl = dbUrl.toString();
+
+            const bubble = {
+                "type": "bubble",
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        { "type": "text", "text": name, "weight": "bold", "size": "xl", "wrap": true },
+                        { "type": "text", "text": `價格: ${price}`, "size": "md", "margin": "md", "color": "#d93025" }
+                    ]
+                },
+                "footer": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                            "type": "button",
+                            "style": "primary",
+                            "color": "#00C300",
+                            "action": { "type": "uri", "label": "立即購買", "uri": buyUrl }
+                        }
+                    ]
+                }
+            };
+            
+            if (image) {
+                bubble.hero = {
+                    "type": "image",
+                    "url": image,
+                    "size": "full",
+                    "aspectRatio": "20:13",
+                    "aspectMode": "cover",
+                    "action": { "type": "uri", "uri": buyUrl }
+                };
+            }
+
+            const flexMsg = {
+                "type": "flex",
+                "altText": `推薦商品：${name}`,
+                "contents": bubble
+            };
+
+            try {
+                // Show temporary view
+                document.getElementById('quickOrderView').classList.remove('hidden');
+                document.getElementById('prodName').innerText = "準備分享中...";
+                document.getElementById('prodPrice').innerText = "";
+
+                const res = await liff.shareTargetPicker([flexMsg]);
+                if (res) {
+                    liff.closeWindow();
+                } else {
+                    // User canceled
+                    renderQuickOrder();
+                }
+            } catch (err) {
+                log('Share failed: ' + err);
+                alert('分享失敗，請確認您已登入並允許權限: ' + err.message);
+                renderQuickOrder();
+            }
+        }
+
         async function runRender() {
             // Determine page
             const page = getParam('page');
+            const action = getParam('action');
+
+            if (action === 'share') {
+                await handleShare();
+                return;
+            }
+
             let userId = null;
             try {
                 if (liff.isLoggedIn()) {
