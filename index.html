@@ -58,8 +58,20 @@
             </div>
         </div>
     </div>
+    
+    <!-- Mobile Debugger -->
+    <div id="debugLog" class="fixed bottom-0 left-0 w-full bg-black bg-opacity-75 text-white text-[10px] p-2 max-h-32 overflow-y-auto z-50 pointer-events-none"></div>
 
     <script>
+        // Debug Logger
+        function log(msg) {
+            const el = document.getElementById('debugLog');
+            if(el) {
+                el.innerText = `[${new Date().toLocaleTimeString()}] ${msg}\n` + el.innerText;
+            }
+            console.log(msg);
+        }
+
         let state = { uid: '', name: '', price: '', color: '', size: '', qty: 1 };
         // 請將此處改為您部署在 Heroku 的 API 網址
         const API_BASE_URL = "https://tracking-line-prod-48e7277f81cf.herokuapp.com";
@@ -109,15 +121,21 @@
 
         async function init() {
             try {
+                log('Starting LIFF init...');
                 await liff.init({ liffId: "2009061767-yr41hYAj" });
+                
                 if (!liff.isLoggedIn()) {
-                    liff.login();
+                    log('Not logged in, calling login...');
+                    // Add redirectUri to ensure it comes back to the same page
+                    liff.login({ redirectUri: window.location.href });
                     return;
                 }
+                
+                log('Init success. Logged In.');
                 await runRender();
             } catch (err) { 
-                console.error(err);
-                // Fallback render even if LIFF init fails
+                log('LIFF init failed: ' + err);
+                // Fallback render
                 await runRender();
             }
         }
@@ -219,6 +237,7 @@
             const msg = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
             
             try {
+                log('Sending: ' + msg);
                 if (!liff.isInClient()) {
                     alert('請手動複製以下內容至聊天室：\n' + msg);
                     return;
@@ -226,6 +245,7 @@
                 await liff.sendMessages([{ type: 'text', text: msg }]);
                 liff.closeWindow();
             } catch (err) {
+                log('Send failed: ' + err);
                 console.error(err);
                 alert('發送失敗：' + (err.message || err));
             }
