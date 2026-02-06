@@ -82,26 +82,44 @@
             return null;
         }
 
+        async function runRender() {
+            // Determine page
+            const page = getParam('page');
+            let userId = null;
+            try {
+                if (liff.isLoggedIn()) {
+                    userId = liff.getContext().userId;
+                }
+            } catch (e) { console.warn('LIFF context not available', e); }
+
+            if (page === 'history') {
+                document.getElementById('historyView').classList.remove('hidden');
+                if (userId) {
+                    loadOrderHistory(userId);
+                } else {
+                    document.getElementById('orderList').innerHTML = '<p class="text-center text-red-400 py-10">無法取得使用者資訊 (請在 LINE 中開啟)</p>';
+                }
+            } else if (page === 'delivery') {
+                document.getElementById('deliveryView').classList.remove('hidden');
+            } else {
+                document.getElementById('quickOrderView').classList.remove('hidden');
+                renderQuickOrder();
+            }
+        }
+
         async function init() {
             try {
                 await liff.init({ liffId: "2009061767-yr41hYAj" });
                 if (!liff.isLoggedIn()) {
                     liff.login();
-                } else {
-                    const page = getParam('page');
-                    const userId = liff.getContext().userId;
-
-                    if (page === 'history') {
-                        document.getElementById('historyView').classList.remove('hidden');
-                        loadOrderHistory(userId);
-                    } else if (page === 'delivery') {
-                        document.getElementById('deliveryView').classList.remove('hidden');
-                    } else {
-                        document.getElementById('quickOrderView').classList.remove('hidden');
-                        renderQuickOrder();
-                    }
+                    return;
                 }
-            } catch (err) { console.error(err); }
+                await runRender();
+            } catch (err) { 
+                console.error(err);
+                // Fallback render even if LIFF init fails
+                await runRender();
+            }
         }
 
         // --- 歷史訂單邏輯 ---
