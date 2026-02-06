@@ -212,10 +212,23 @@
         }
 
         async function submitOrder() {
-            if (!state.color || !state.size) return alert('請完整選擇');
+            if (!state.color || !state.size) {
+                alert('請完整選擇顏色與尺寸');
+                return; 
+            }
             const msg = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
-            await liff.sendMessages([{ type: 'text', text: msg }]);
-            liff.closeWindow();
+            
+            try {
+                if (!liff.isInClient()) {
+                    alert('請手動複製以下內容至聊天室：\n' + msg);
+                    return;
+                }
+                await liff.sendMessages([{ type: 'text', text: msg }]);
+                liff.closeWindow();
+            } catch (err) {
+                console.error(err);
+                alert('發送失敗：' + (err.message || err));
+            }
         }
 
         init();
