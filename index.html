@@ -58,6 +58,33 @@
             </div>
         </div>
     </div>
+
+    <!-- Currency Update View -->
+    <div id="currencyView" class="hidden w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-xl p-6">
+            <h2 id="currencyTitle" class="text-xl font-bold mb-1 text-center text-gray-800">匯率設定</h2>
+            <p id="currencySub" class="text-center text-gray-400 text-sm mb-6"></p>
+
+            <div class="space-y-6">
+                <div>
+                   <label class="block text-gray-500 text-sm mb-2 font-bold" for="rateInput">輸入新匯率</label>
+                   <div class="relative">
+                        <input type="number" id="rateInput" inputmode="decimal" step="0.01" 
+                               class="w-full px-4 py-4 rounded-xl bg-gray-50 border-2 border-gray-100 focus:border-blue-500 focus:bg-white focus:outline-none text-3xl font-bold text-center text-gray-800 transition-all placeholder-gray-300"
+                               placeholder="0.00">
+                   </div>
+                   <p class="text-xs text-gray-400 mt-2 text-center">請輸入完整數字，例如: 32.5</p>
+                </div>
+
+                <button onclick="submitRate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                    確認更新
+                </button>
+            </div>
+        </div>
+    </div>
     
     <!-- Mobile Debugger -->
     <div id="debugLog" class="fixed bottom-0 left-0 w-full bg-black bg-opacity-75 text-white text-[10px] p-2 max-h-32 overflow-y-auto z-50 pointer-events-none"></div>
@@ -101,7 +128,18 @@
             const image = getParam('image');
 
             if (!liff.isApiAvailable('shareTargetPicker')) {
-                alert('您的 LINE 版本不支援分享功能，或未開啟 Share Target Picker 權限');
+                const confirmCopy = confirm('您的 LINE 版本不支援分享功能，或未開啟 Share Target Picker 權限。\n是否複製購買連結以手動分享？');
+                if (confirmCopy) {
+                    const dbUrl = new URL(window.location.href);
+                    dbUrl.searchParams.delete('action');
+                    const shareUrl = dbUrl.toString();
+                    try {
+                        await navigator.clipboard.writeText(shareUrl);
+                        alert('連結已複製！請貼上給好友。');
+                    } catch (e) {
+                        prompt('請複製以下連結：', shareUrl);
+                    }
+                }
                 document.getElementById('quickOrderView').classList.remove('hidden');
                 renderQuickOrder();
                 return;
@@ -168,7 +206,18 @@
                 }
             } catch (err) {
                 log('Share failed: ' + err);
-                alert('分享失敗，請確認您已登入並允許權限: ' + err.message);
+                const confirmCopy = confirm('分享失敗(' + err.message + ')。\n是否複製購買連結以手動分享？');
+                if (confirmCopy) {
+                     const dbUrl = new URL(window.location.href);
+                     dbUrl.searchParams.delete('action');
+                     const shareUrl = dbUrl.toString();
+                     try {
+                        await navigator.clipboard.writeText(shareUrl);
+                        alert('連結已複製！');
+                     } catch (e) {
+                        prompt('請複製以下連結：', shareUrl);
+                     }
+                }
                 renderQuickOrder();
             }
         }
@@ -199,9 +248,47 @@
                 }
             } else if (page === 'delivery') {
                 document.getElementById('deliveryView').classList.remove('hidden');
+            } else if (page === 'currency') {
+                document.getElementById('currencyView').classList.remove('hidden');
+                renderCurrencyEdit();
             } else {
                 document.getElementById('quickOrderView').classList.remove('hidden');
                 renderQuickOrder();
+            }
+        }
+
+        async function renderCurrencyEdit() {
+            // Get currency code and current rate from URL
+            const code = getParam('code') || 'USD';
+            const rate = getParam('rate') || '';
+            
+            document.getElementById('currencyTitle').innerText = `${code} 匯率設定`;
+            document.getElementById('currencySub').innerText = `目前設定：${rate}`;
+            document.getElementById('rateInput').value = rate;
+            
+            // Store code in state for submission
+            state.currencyCode = code;
+        }
+
+        async function submitRate() {
+            const newRate = document.getElementById('rateInput').value;
+            if (!newRate || isNaN(newRate)) {
+                alert('請輸入有效的數字匯率');
+                return;
+            }
+            
+            const msg = `匯率 update ${state.currencyCode} ${newRate}`;
+            
+            try {
+                if (!liff.isInClient()) {
+                    alert('請手動複製以下指令至聊天室：\n' + msg);
+                    return;
+                }
+                await liff.sendMessages([{ type: 'text', text: msg }]);
+                liff.closeWindow();
+            } catch (err) {
+                console.error(err);
+                alert('發送失敗：' + (err.message || err));
             }
         }
 
