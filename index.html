@@ -149,6 +149,7 @@
             const dbUrl = new URL(window.location.href);
             dbUrl.searchParams.delete('action');
             const buyUrl = dbUrl.toString();
+            const addFriendUrl = "https://line.me/R/ti/p/@694nscli";
 
             const bubble = {
                 "type": "bubble",
@@ -169,6 +170,17 @@
                             "style": "primary",
                             "color": "#00C300",
                             "action": { "type": "uri", "label": "立即購買", "uri": buyUrl }
+                        },
+                        {
+                            "type": "button",
+                            "style": "primary",
+                            "height": "sm",
+                            "action": {
+                                "type": "uri",
+                                "label": "加入官方帳號",
+                                "uri": addFriendUrl
+                            },
+                            "margin": "sm"
                         }
                     ]
                 }
