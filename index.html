@@ -1,30 +1,601 @@
-async function submitOrder() {
-    const orderMsg = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
-    const encodedMsg = encodeURIComponent(orderMsg);
-    const oaUrl = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>24/7oncall 客戶中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        /* 簡單的載入動畫 */
+        .loader { border-top-color: #3498db; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
-    // 1. 外部瀏覽器直接走跳轉或複製
-    if (!liff.isInClient()) {
-        window.location.href = oaUrl;
-        // 為了保證 100% 成功，也可以同時彈出複製 Modal
-        showManualCopyModal(orderMsg);
-        return;
-    }
+    <div id="quickOrderView" class="hidden bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+        <h1 id="prodName" class="text-xl font-bold text-gray-800 mb-2 text-center">載入中...</h1>
+        <p id="prodPrice" class="text-red-500 font-bold text-3xl mb-8 text-center">--</p>
 
-    // 2. LINE 內部嘗試 API 發送
-    try {
-        await liff.sendMessages([{ type: 'text', text: orderMsg }]);
-        liff.closeWindow();
-    } catch (err) {
-        console.error('Send failed:', err);
-        
-        // 3. 權限失敗時的定向跳轉備援
-        if (err.message.includes('permissions') || err.message.includes('grant')) {
-            // 引導用戶跳轉到 OA 聊天室
-            window.location.href = oaUrl;
-        } else {
-            // 最終防禦：手動複製
-            showManualCopyModal(orderMsg);
+        <div class="space-y-6">
+            <div>
+                <label class="block text-gray-500 text-sm mb-2">顏色</label>
+                <div id="colorContainer" class="flex flex-wrap gap-2"></div>
+            </div>
+            <div>
+                <label class="block text-gray-500 text-sm mb-2">尺寸</label>
+                <div id="sizeContainer" class="flex flex-wrap gap-2"></div>
+            </div>
+            <div class="flex items-center justify-between border-t pt-6">
+                <span class="text-gray-700 font-medium">下單數量</span>
+                <div class="flex items-center border-2 border-gray-100 rounded-xl overflow-hidden">
+                    <button onclick="updateQty(-1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100">-</button>
+                    <span id="qtyText" class="px-6 py-2 font-bold text-lg min-w-[3.5rem] text-center">1</span>
+                    <button onclick="updateQty(1)" class="px-4 py-2 bg-gray-50 hover:bg-gray-100">+</button>
+                </div>
+            </div>
+        </div>
+        <button onclick="submitOrder()" class="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95">
+            確認喊單
+        </button>
+    </div>
+
+    <div id="historyView" class="hidden w-full max-w-md space-y-4">
+        <div class="bg-blue-600 text-white p-6 rounded-2xl shadow-lg mb-6">
+            <p class="text-sm opacity-80 text-center">目前待付款總額</p>
+            <h2 id="unpaidTotal" class="text-3xl font-bold font-mono text-center">$ --</h2>
+        </div>
+        <div id="orderList" class="space-y-3">
+            </div>
+    </div>
+
+    <div id="deliveryView" class="hidden w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-xl p-6">
+            <h2 class="text-xl font-bold mb-4">配送進度</h2>
+            <div id="deliveryList" class="space-y-4 text-gray-500 text-center py-10">
+                功能開發中，敬請期待...
+            </div>
+        </div>
+    </div>
+
+    <!-- Currency Update View -->
+    <div id="currencyView" class="hidden w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-xl p-6">
+            <h2 id="currencyTitle" class="text-xl font-bold mb-1 text-center text-gray-800">匯率設定</h2>
+            <p id="currencySub" class="text-center text-gray-400 text-sm mb-6"></p>
+
+            <div class="space-y-6">
+                <div>
+                   <label class="block text-gray-500 text-sm mb-2 font-bold" for="rateInput">輸入新匯率</label>
+                   <div class="relative">
+                        <input type="number" id="rateInput" inputmode="decimal" step="0.01" 
+                               class="w-full px-4 py-4 rounded-xl bg-gray-50 border-2 border-gray-100 focus:border-blue-500 focus:bg-white focus:outline-none text-3xl font-bold text-center text-gray-800 transition-all placeholder-gray-300"
+                               placeholder="0.00">
+                   </div>
+                   <p class="text-xs text-gray-400 mt-2 text-center">請輸入完整數字，例如: 32.5</p>
+                </div>
+
+                <button onclick="submitRate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                    確認更新
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Redirect Transition Modal -->
+    <div id="redirectModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[110] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div class="p-8 text-center">
+                <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-extrabold text-gray-900 mb-3">前往官方帳號</h3>
+                <p id="redirectText" class="text-gray-500 text-sm mb-8 leading-relaxed">
+                    即將開啟官方帳號聊天室，請在進入後點擊『發送』即可完成下單。
+                </p>
+                
+                <button id="redirectGoBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-green-200 transition-all active:scale-[0.98]">
+                    立即前往聊天室
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Copy Dialog Modal -->
+    <div id="copyModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl transform transition-all">
+            <div class="p-8 text-center">
+                <div class="w-16 h-16 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 mb-2">請手動發送指令</h3>
+                <p class="text-gray-500 text-sm mb-6 leading-relaxed">
+                    由於 LINE 隱私設定限制，請複製下方指令，並在官方帳號聊天室中貼上以完成訂購。
+                </p>
+                
+                <div class="bg-gray-100 border border-gray-200 rounded-xl p-4 mb-6 select-all font-mono text-sm text-gray-700 break-all text-left">
+                    <p id="msgToCopy"></p>
+                    <p id="copyToast" class="hidden text-green-600 text-[10px] font-bold mt-1">✓ 已複製指令！</p>
+                </div>
+
+                <div class="space-y-3">
+                    <button id="copyBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+                        <span>複製並前往下單</span>
+                    </button>
+                    <button onclick="liff.closeWindow()" class="w-full text-gray-400 font-medium text-xs py-2 hover:text-gray-600">
+                        關閉視窗
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mobile Debugger -->
+    <div id="debugLog" class="fixed bottom-0 left-0 w-full bg-black bg-opacity-75 text-white text-[10px] p-2 max-h-32 overflow-y-auto z-50 pointer-events-none"></div>
+
+    <script>
+        // Debug Logger
+        function log(msg) {
+            const el = document.getElementById('debugLog');
+            if(el) {
+                el.innerText = `[${new Date().toLocaleTimeString()}] ${msg}\n` + el.innerText;
+            }
+            console.log(msg);
         }
-    }
-}
+
+        let state = { uid: '', name: '', price: '', color: '', size: '', qty: 1 };
+        // 請將此處改為您部署在 Heroku 的 API 網址
+        const API_BASE_URL = "https://tracking-line-prod-48e7277f81cf.herokuapp.com";
+
+        function getParam(name) {
+            const urlObj = new URL(window.location.href);
+            let val = urlObj.searchParams.get(name);
+            if (!val && urlObj.searchParams.has('liff.state')) {
+                const stateStr = decodeURIComponent(urlObj.searchParams.get('liff.state'));
+                const stateParams = new URLSearchParams(stateStr.substring(stateStr.indexOf('?')));
+                val = stateParams.get(name);
+            }
+            if (val) {
+                try {
+                    let decoded = decodeURIComponent(val);
+                    if (decoded.includes('%')) decoded = decodeURIComponent(decoded);
+                    return decoded;
+                } catch (e) { return val; }
+            }
+            return null;
+        }
+
+        async function handleShare() {
+            const uid = getParam('uid');
+            const name = getParam('name') || '商品';
+            const price = getParam('price') || '0';
+            const image = getParam('image');
+
+            const LIFF_ID = "2009061767-yr41hYAj";
+            const LIFF_URL = `https://liff.line.me/${LIFF_ID}`;
+
+            // 取得正確的 LIFF 共享連結，確保開啟時在 LINE 內部環境並保留參數
+            const getShareUrl = () => {
+                const url = new URL(LIFF_URL);
+                const params = new URLSearchParams(window.location.search);
+                params.delete('action');
+                params.forEach((v, k) => url.searchParams.set(k, v));
+                return url.toString();
+            };
+
+            if (!liff.isApiAvailable('shareTargetPicker')) {
+                const confirmCopy = confirm('您的 LINE 版本不支援分享功能，或未開啟 Share Target Picker 權限。\n是否複製購買連結以手動分享？');
+                if (confirmCopy) {
+                    const shareUrl = getShareUrl();
+                    try {
+                        await navigator.clipboard.writeText(shareUrl);
+                        alert('連結已複製！請貼上給好友。');
+                    } catch (e) {
+                        prompt('請複製以下連結：', shareUrl);
+                    }
+                }
+                document.getElementById('quickOrderView').classList.remove('hidden');
+                renderQuickOrder();
+                return;
+            }
+
+            // 使用 LIFF URL 替代原本的 window.location.href
+            const buyUrl = getShareUrl();
+            const addFriendUrl = "https://line.me/R/ti/p/@694nscli";
+
+            const bubble = {
+                "type": "bubble",
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        { "type": "text", "text": name, "weight": "bold", "size": "xl", "wrap": true },
+                        { "type": "text", "text": `價格: ${price}`, "size": "md", "margin": "md", "color": "#d93025" }
+                    ]
+                },
+                "footer": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                            "type": "button",
+                            "style": "primary",
+                            "color": "#00C300",
+                            "action": { "type": "uri", "label": "立即購買", "uri": buyUrl }
+                        },
+                        {
+                            "type": "button",
+                            "style": "primary",
+                            "height": "sm",
+                            "action": {
+                                "type": "uri",
+                                "label": "加入官方帳號",
+                                "uri": addFriendUrl
+                            },
+                            "margin": "sm"
+                        }
+                    ]
+                }
+            };
+            
+            if (image) {
+                bubble.hero = {
+                    "type": "image",
+                    "url": image,
+                    "size": "full",
+                    "aspectRatio": "20:13",
+                    "aspectMode": "cover",
+                    "action": { "type": "uri", "uri": buyUrl }
+                };
+            }
+
+            const flexMsg = {
+                "type": "flex",
+                "altText": `推薦商品：${name}`,
+                "contents": bubble
+            };
+
+            try {
+                // Show temporary view
+                document.getElementById('quickOrderView').classList.remove('hidden');
+                document.getElementById('prodName').innerText = "準備分享中...";
+                document.getElementById('prodPrice').innerText = "";
+
+                const res = await liff.shareTargetPicker([flexMsg]);
+                if (res) {
+                    liff.closeWindow();
+                } else {
+                    // User canceled
+                    renderQuickOrder();
+                }
+            } catch (err) {
+                log('Share failed: ' + err);
+                const confirmCopy = confirm('分享失敗(' + err.message + ')。\n是否複製購買連結以手動分享？');
+                if (confirmCopy) {
+                     const shareUrl = getShareUrl();
+                     try {
+                        await navigator.clipboard.writeText(shareUrl);
+                        alert('連結已複製！');
+                     } catch (e) {
+                        prompt('請複製以下連結：', shareUrl);
+                     }
+                }
+                renderQuickOrder();
+            }
+        }
+
+        async function runRender() {
+            // Determine page
+            const page = getParam('page');
+            const action = getParam('action');
+
+            if (action === 'share') {
+                await handleShare();
+                return;
+            }
+
+            // --- 強制檢查區 (主要針對喊單、歷史、配送頁面) ---
+            if (!page || ['quickorder', 'history', 'delivery'].includes(page)) {
+                // 1. 如果在 LINE 外部開啟，強制重導向至 LIFF URL (確保能夠正確獲取 userId 與環境)
+                if (!liff.isInClient()) {
+                    log('External URL detected. Redirecting to LIFF Link...');
+                    const LIFF_URL = "https://liff.line.me/2009061767-yr41hYAj";
+                    const dest = new URL(LIFF_URL);
+                    new URLSearchParams(window.location.search).forEach((v, k) => dest.searchParams.set(k, v));
+                    window.location.href = dest.toString();
+                    return;
+                }
+
+                // 2. 在 LINE 內部環境下，檢查好友狀態
+                try {
+                    const friendship = await liff.getFriendship();
+                    log('Friendship check: ' + friendship.friendFlag);
+                    if (!friendship.friendFlag) {
+                        log('Not a friend. Redirecting to follow page...');
+                        window.location.href = "https://line.me/R/ti/p/@694nscli";
+                        return;
+                    }
+                } catch (err) {
+                    log('Friendship API Error: ' + err);
+                    // 針對「未連結 Bot」錯誤提供更清楚的指示
+                    if (err.message && err.message.includes('login bot')) {
+                        alert('系統設定提醒：\n請至 LINE Developers Console 的 LIFF 分頁，將 "Linked Bot" 設定為您的官方帳號，否則無法主動檢查好友狀態。');
+                    }
+                }
+            }
+
+            let userId = null;
+            try {
+                if (liff.isLoggedIn()) {
+                    userId = liff.getContext().userId;
+                }
+            } catch (e) { console.warn('LIFF context not available', e); }
+
+            if (page === 'history') {
+                document.getElementById('historyView').classList.remove('hidden');
+                if (userId) {
+                    loadOrderHistory(userId);
+                } else {
+                    document.getElementById('orderList').innerHTML = '<p class="text-center text-red-400 py-10">無法取得使用者資訊 (請在 LINE 中開啟)</p>';
+                }
+            } else if (page === 'delivery') {
+                document.getElementById('deliveryView').classList.remove('hidden');
+            } else if (page === 'currency') {
+                document.getElementById('currencyView').classList.remove('hidden');
+                renderCurrencyEdit();
+            } else {
+                document.getElementById('quickOrderView').classList.remove('hidden');
+                renderQuickOrder();
+            }
+        }
+
+        async function renderCurrencyEdit() {
+            // Get currency code and current rate from URL
+            const code = getParam('code') || 'USD';
+            const rate = getParam('rate') || '';
+            
+            document.getElementById('currencyTitle').innerText = `${code} 匯率設定`;
+            document.getElementById('currencySub').innerText = `目前設定：${rate}`;
+            document.getElementById('rateInput').value = rate;
+            
+            // Store code in state for submission
+            state.currencyCode = code;
+        }
+
+        async function submitRate() {
+            const newRate = document.getElementById('rateInput').value;
+            if (!newRate || isNaN(newRate)) {
+                alert('請輸入有效的數字匯率');
+                return;
+            }
+            
+            const msg = `匯率 update ${state.currencyCode} ${newRate}`;
+            
+            try {
+                if (!liff.isInClient()) {
+                    alert('請手動複製以下指令至聊天室：\n' + msg);
+                    return;
+                }
+                await liff.sendMessages([{ type: 'text', text: msg }]);
+                liff.closeWindow();
+            } catch (err) {
+                console.error(err);
+                alert('發送失敗：' + (err.message || err));
+            }
+        }
+
+        async function init() {
+            try {
+                log('Starting LIFF init...');
+                await liff.init({ liffId: "2009061767-yr41hYAj" });
+                
+                if (!liff.isLoggedIn()) {
+                    log('Not logged in, calling login...');
+                    liff.login({ 
+                        redirectUri: window.location.href,
+                        botPrompt: 'normal'
+                    });
+                    return;
+                }
+                
+                log('Init success. Logged In.');
+                await runRender();
+            } catch (err) { 
+                log('LIFF init failed: ' + err);
+                // Fallback render
+                await runRender();
+            }
+        }
+
+        // --- 歷史訂單邏輯 ---
+        async function loadOrderHistory(userId) {
+            const listContainer = document.getElementById('orderList');
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/orders/${userId}`);
+                const data = await response.json();
+
+                // 處理待付款總額 (取絕對值並加上千分位)
+                const total = Math.abs(data.unpaid_total || 0);
+                document.getElementById('unpaidTotal').innerText = `$${total.toLocaleString()}`;
+
+                if (!data.orders || data.orders.length === 0) {
+                    listContainer.innerHTML = '<p class="text-center text-gray-400 py-10">尚無紀錄</p>';
+                    return;
+                }
+
+                listContainer.innerHTML = data.orders.map(order => `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] text-gray-400 font-mono">${order.order_no}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] ${order.status === 'unpaid' ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}">
+                                ${order.status === 'unpaid' ? '待付款' : '已結清'}
+                            </span>
+                        </div>
+                        <div class="space-y-1 mb-2">
+                            ${order.items.map(item => `
+                                <div class="flex justify-between items-center text-sm italic py-1">
+                                    <div class="flex items-center gap-2">
+                                        ${item.image ? `<img src="${item.image}" class="w-10 h-10 object-cover rounded border border-gray-100" loading="lazy">` : ''}
+                                        <div class="flex flex-col">
+                                            <span class="text-gray-600">${item.name}</span>
+                                            <span class="text-xs text-gray-400">x${item.qty}</span>
+                                        </div>
+                                    </div>
+                                    <span class="text-gray-900">$${item.price}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-50 text-[10px]">
+                            <span class="text-gray-400">${order.date}</span>
+                            <span class="text-gray-900 font-bold text-sm">$${Math.abs(order.total).toLocaleString()}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                listContainer.innerHTML = '<p class="text-center text-red-400">連線 API 失敗</p>';
+            }
+        }
+
+        // --- 原有的喊單渲染邏輯 ---
+        function renderQuickOrder() {
+            state.uid = getParam('uid') || 'Unknown';
+            state.name = getParam('name') || '商品';
+            state.price = getParam('price') || '0';
+            
+            document.getElementById('prodName').innerText = state.name;
+            document.getElementById('prodPrice').innerText = `$${state.price}`;
+            renderButtons('colorContainer', getParam('colors'), 'color');
+            renderButtons('sizeContainer', getParam('sizes'), 'size');
+        }
+
+        function renderButtons(containerId, dataStr, type) {
+            const container = document.getElementById(containerId);
+            if (!dataStr || dataStr.toLowerCase() === 'none') {
+                container.innerHTML = `<span class="text-gray-400 text-sm">無</span>`;
+                state[type] = 'None';
+                return;
+            }
+            const items = dataStr.split(',');
+            items.forEach(item => {
+                const btn = document.createElement('button');
+                btn.innerText = item;
+                btn.className = "px-4 py-2 border-2 border-gray-100 rounded-lg text-sm transition-all";
+                btn.onclick = () => {
+                    state[type] = item;
+                    Array.from(container.children).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50'));
+                    btn.classList.add('border-blue-500', 'bg-blue-50');
+                };
+                container.appendChild(btn);
+            });
+            if (items.length === 1) container.firstChild.click();
+        }
+
+        function updateQty(n) {
+            state.qty = Math.max(1, state.qty + n);
+            document.getElementById('qtyText').innerText = state.qty;
+        }
+
+        /**
+         * 核心下單邏輯：API 代發 -> 定向 OA 跳轉 -> 手動複製備援
+         */
+        async function submitOrder() {
+            // 檢查必選欄位
+            if (!state.color || !state.size) {
+                alert('請完整選擇顏色與尺寸');
+                return; 
+            }
+
+            const orderMessage = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
+            const encodedMsg = encodeURIComponent(orderMessage);
+            // 定向跳轉 URL：確保開啟與指定官方帳號 (@694nscli) 的對話框
+            const OA_SCHEME = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
+            
+            log('開始處理訂單: ' + orderMessage);
+
+            // --- 第一層防禦：外部瀏覽器判斷 ---
+            if (!liff.isInClient()) {
+                log('外部瀏覽器：嘗試喚起 LINE App 並導向 OA');
+                // 使用 location.replace 避免留在空白頁
+                window.location.replace(OA_SCHEME);
+                
+                // 1.5秒後若沒跳轉成功，顯示手動複製視窗作為最終保險
+                setTimeout(() => {
+                    if (document.visibilityState === 'visible') {
+                        showManualCopyModal(orderMessage);
+                    }
+                }, 1500);
+                return;
+            }
+
+            // --- 第二層防禦：LINE 內部 API 代發 ---
+            try {
+                log('嘗試執行 liff.sendMessages...');
+                await liff.sendMessages([{ type: 'text', text: orderMessage }]);
+                log('API 發送成功');
+                liff.closeWindow();
+            } catch (err) {
+                // --- 第三層防禦：權限失效時的定向跳轉 ---
+                log('API 發送失敗（權限或環境限制）: ' + err.message);
+                
+                // 如果是常見的權限錯誤，直接顯示引導 Modal 並準備跳轉
+                const redirectModal = document.getElementById('redirectModal');
+                const goBtn = document.getElementById('redirectGoBtn');
+                
+                if (redirectModal && goBtn) {
+                    redirectModal.classList.remove('hidden');
+                    
+                    goBtn.onclick = () => {
+                        log('用戶點擊引導按鈕，執行 URL Scheme 跳轉');
+                        window.location.href = OA_SCHEME;
+                        // 跳轉後延遲關閉視窗，確保指令順利帶入
+                        setTimeout(() => liff.closeWindow(), 1000);
+                    };
+                } else {
+                    // UI 找不到時的緊急備援
+                    window.location.replace(OA_SCHEME);
+                }
+            }
+        }
+
+        /**
+         * 輔助功能：顯示手動複製 Modal (用於 API 與跳轉皆失效的最極端情況)
+         */
+        function showManualCopyModal(orderMessage) {
+            const modal = document.getElementById('copyModal');
+            const msgEl = document.getElementById('msgToCopy');
+            const toast = document.getElementById('copyToast');
+            
+            if (modal && msgEl) {
+                msgEl.innerText = orderMessage;
+                modal.classList.remove('hidden');
+                
+                const copyBtn = document.getElementById('copyBtn');
+                copyBtn.onclick = async () => {
+                    try {
+                        await navigator.clipboard.writeText(orderMessage);
+                        if (toast) toast.classList.remove('hidden');
+                        log('指令已複製到剪貼簿');
+                        
+                        // 複製後引導用戶點擊開啟 LINE 或手動關閉
+                        setTimeout(() => {
+                            if (liff.isInClient()) liff.closeWindow();
+                        }, 1500);
+                    } catch (copyErr) {
+                        prompt('請手動複製以下指令：', orderMessage);
+                    }
+                };
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
