@@ -127,12 +127,22 @@
             const price = getParam('price') || '0';
             const image = getParam('image');
 
+            const LIFF_ID = "2009061767-yr41hYAj";
+            const LIFF_URL = `https://liff.line.me/${LIFF_ID}`;
+
+            // 取得正確的 LIFF 共享連結，確保開啟時在 LINE 內部環境並保留參數
+            const getShareUrl = () => {
+                const url = new URL(LIFF_URL);
+                const params = new URLSearchParams(window.location.search);
+                params.delete('action');
+                params.forEach((v, k) => url.searchParams.set(k, v));
+                return url.toString();
+            };
+
             if (!liff.isApiAvailable('shareTargetPicker')) {
                 const confirmCopy = confirm('您的 LINE 版本不支援分享功能，或未開啟 Share Target Picker 權限。\n是否複製購買連結以手動分享？');
                 if (confirmCopy) {
-                    const dbUrl = new URL(window.location.href);
-                    dbUrl.searchParams.delete('action');
-                    const shareUrl = dbUrl.toString();
+                    const shareUrl = getShareUrl();
                     try {
                         await navigator.clipboard.writeText(shareUrl);
                         alert('連結已複製！請貼上給好友。');
@@ -145,10 +155,8 @@
                 return;
             }
 
-            // Remove action=share from the URL for the Buy Now button
-            const dbUrl = new URL(window.location.href);
-            dbUrl.searchParams.delete('action');
-            const buyUrl = dbUrl.toString();
+            // 使用 LIFF URL 替代原本的 window.location.href
+            const buyUrl = getShareUrl();
             const addFriendUrl = "https://line.me/R/ti/p/@694nscli";
 
             const bubble = {
@@ -220,9 +228,7 @@
                 log('Share failed: ' + err);
                 const confirmCopy = confirm('分享失敗(' + err.message + ')。\n是否複製購買連結以手動分享？');
                 if (confirmCopy) {
-                     const dbUrl = new URL(window.location.href);
-                     dbUrl.searchParams.delete('action');
-                     const shareUrl = dbUrl.toString();
+                     const shareUrl = getShareUrl();
                      try {
                         await navigator.clipboard.writeText(shareUrl);
                         alert('連結已複製！');
@@ -242,6 +248,32 @@
             if (action === 'share') {
                 await handleShare();
                 return;
+            }
+
+            // --- 強制檢查區 (主要針對喊單、歷史、配送頁面) ---
+            if (!page || ['quickorder', 'history', 'delivery'].includes(page)) {
+                // 1. 如果在 LINE 外部開啟，強制重導向至 LIFF URL (確保能夠正確獲取 userId 與環境)
+                if (!liff.isInClient()) {
+                    log('External URL detected. Redirecting to LIFF Link...');
+                    const LIFF_URL = "https://liff.line.me/2009061767-yr41hYAj";
+                    const dest = new URL(LIFF_URL);
+                    new URLSearchParams(window.location.search).forEach((v, k) => dest.searchParams.set(k, v));
+                    window.location.href = dest.toString();
+                    return;
+                }
+
+                // 2. 在 LINE 內部環境下，檢查好友狀態
+                try {
+                    const friendship = await liff.getFriendship();
+                    log('Friendship check: ' + friendship.friendFlag);
+                    if (!friendship.friendFlag) {
+                        log('Not a friend. Redirecting to follow page...');
+                        window.location.href = "https://line.me/R/ti/p/@694nscli";
+                        return;
+                    }
+                } catch (err) {
+                    log('Friendship API Error: ' + err);
+                }
             }
 
             let userId = null;
@@ -311,8 +343,10 @@
                 
                 if (!liff.isLoggedIn()) {
                     log('Not logged in, calling login...');
-                    // Add redirectUri to ensure it comes back to the same page
-                    liff.login({ redirectUri: window.location.href });
+                    liff.login({ 
+                        redirectUri: window.location.href,
+                        botPrompt: 'normal'
+                    });
                     return;
                 }
                 
