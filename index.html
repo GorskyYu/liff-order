@@ -86,6 +86,61 @@
         </div>
     </div>
     
+    <!-- Redirect Transition Modal -->
+    <div id="redirectModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[110] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div class="p-8 text-center">
+                <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-extrabold text-gray-900 mb-3">前往官方帳號</h3>
+                <p id="redirectText" class="text-gray-500 text-sm mb-8 leading-relaxed">
+                    即將開啟官方帳號聊天室，請在進入後點擊『發送』即可完成下單。
+                </p>
+                
+                <button id="redirectGoBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-green-200 transition-all active:scale-[0.98]">
+                    立即前往聊天室
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Copy Dialog Modal -->
+    <div id="copyModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl transform transition-all">
+            <div class="p-8 text-center">
+                <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-extrabold text-gray-900 mb-3">請手動發送指令</h3>
+                <p class="text-gray-500 text-sm mb-8 leading-relaxed">
+                    由於 LINE 的隱私設定限制，請複製下方指令，並在聊天室中貼上以完成訂購。
+                </p>
+                
+                <div class="bg-blue-50 border-2 border-blue-200 border-dashed rounded-2xl p-5 mb-8 select-all group active:bg-blue-100 transition-all">
+                    <p id="msgToCopy" class="text-xl font-mono font-bold text-blue-800 tracking-wider break-all"></p>
+                    <p id="copyToast" class="hidden text-green-600 text-xs font-bold mt-2 animate-bounce">✓ 已複製指令！</p>
+                </div>
+
+                <div class="space-y-4">
+                    <button id="copyBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                        <span>複製指令並完成</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <button onclick="document.getElementById('copyModal').classList.add('hidden')" class="w-full text-gray-400 font-medium text-sm py-2 hover:text-gray-600 transition-colors">
+                        返回修改
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Mobile Debugger -->
     <div id="debugLog" class="fixed bottom-0 left-0 w-full bg-black bg-opacity-75 text-white text-[10px] p-2 max-h-32 overflow-y-auto z-50 pointer-events-none"></div>
 
@@ -273,6 +328,10 @@
                     }
                 } catch (err) {
                     log('Friendship API Error: ' + err);
+                    // 針對「未連結 Bot」錯誤提供更清楚的指示
+                    if (err.message && err.message.includes('login bot')) {
+                        alert('系統設定提醒：\n請至 LINE Developers Console 的 LIFF 分頁，將 "Linked Bot" 設定為您的官方帳號，否則無法主動檢查好友狀態。');
+                    }
                 }
             }
 
@@ -420,7 +479,6 @@
             renderButtons('sizeContainer', getParam('sizes'), 'size');
         }
 
-        // ... 保留您原本的 renderButtons, updateQty, submitOrder 函式 ...
         function renderButtons(containerId, dataStr, type) {
             const container = document.getElementById(containerId);
             if (!dataStr || dataStr.toLowerCase() === 'none') {
@@ -448,25 +506,93 @@
             document.getElementById('qtyText').innerText = state.qty;
         }
 
+        function showManualCopyModal(orderMessage) {
+            const modal = document.getElementById('copyModal');
+            const msgEl = document.getElementById('msgToCopy');
+            const copyBtn = document.getElementById('copyBtn');
+            const toast = document.getElementById('copyToast');
+            
+            msgEl.innerText = orderMessage;
+            modal.classList.remove('hidden');
+            toast.classList.add('hidden');
+            
+            copyBtn.onclick = async () => {
+                try {
+                    await navigator.clipboard.writeText(orderMessage);
+                    // Show "Copied!" notification
+                    toast.classList.remove('hidden');
+                    
+                    // Delay to allow user to see notification before closing
+                    setTimeout(() => {
+                        if (liff.isInClient()) {
+                            liff.closeWindow();
+                        } else {
+                            // If in external browser, just keep the modal or hide toast
+                            toast.classList.add('hidden');
+                        }
+                    }, 1200);
+                } catch (err) {
+                    log('Clipboard error: ' + err);
+                    prompt('複製失敗，請長按文字手動複製：', orderMessage);
+                }
+            };
+        }
+
         async function submitOrder() {
             if (!state.color || !state.size) {
                 alert('請完整選擇顏色與尺寸');
                 return; 
             }
-            const msg = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
+            const orderMessage = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
+            const encodedMsg = encodeURIComponent(orderMessage);
+            const OA_SCHEME = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
             
+            log('Processing order: ' + orderMessage);
+            
+            // 1. External Browser: Jump directly to LINE App via URL Scheme
+            if (!liff.isInClient()) {
+                log('External browser - Redirecting to OA Scheme');
+                window.location.href = OA_SCHEME;
+                
+                // Fallback for Scheme failure (after 2s, show manual copy)
+                setTimeout(() => {
+                    if (document.visibilityState === 'visible') {
+                        showManualCopyModal(orderMessage);
+                    }
+                }, 2500);
+                return;
+            }
+            
+            // 2. In LINE Client: Try liff.sendMessages first
             try {
-                log('Sending: ' + msg);
-                if (!liff.isInClient()) {
-                    alert('請手動複製以下內容至聊天室：\n' + msg);
-                    return;
-                }
-                await liff.sendMessages([{ type: 'text', text: msg }]);
+                log('Attempting liff.sendMessages');
+                await liff.sendMessages([{ type: 'text', text: orderMessage }]);
+                log('Direct send successful');
                 liff.closeWindow();
             } catch (err) {
-                log('Send failed: ' + err);
-                console.error(err);
-                alert('發送失敗：' + (err.message || err));
+                log('Direct send failed (likely permissions): ' + err);
+                
+                // 3. Smart Redirect: Show transition prompt and use OA Scheme
+                const redirectModal = document.getElementById('redirectModal');
+                const goBtn = document.getElementById('redirectGoBtn');
+                
+                redirectModal.classList.remove('hidden');
+                
+                goBtn.onclick = () => {
+                    log('Redirecting to OA Scheme from Modal');
+                    window.location.href = OA_SCHEME;
+                    // Usually this closes the LIFF window as it jumps to chat
+                    setTimeout(() => liff.closeWindow(), 500); 
+                };
+
+                // Final Fallback if user stays in modal for too long without redirect
+                setTimeout(() => {
+                    if (!redirectModal.classList.contains('hidden')) {
+                         log('Redirect failed/stalled, showing manual fallback');
+                         redirectModal.classList.add('hidden');
+                         showManualCopyModal(orderMessage);
+                    }
+                }, 10000);
             }
         }
 
