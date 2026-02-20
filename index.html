@@ -178,11 +178,22 @@
             const name = getParam('name') || '商品';
             const price = getParam('price') || '0';
             const image = getParam('image');
+            const colors = getParam('colors') || 'None';
+            const sizes = getParam('sizes') || 'None';
 
-            // ✅ 使用 LINE OA Message URL 直接導向官方帳號對話
-            const defaultMsg = `我想購買 ${uid}`;
-            const encodedMsg = encodeURIComponent(defaultMsg);
-            const buyUrl = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
+            const LIFF_ID = "2009061767-yr41hYAj";
+            
+            // ✅ 構建 LIFF URL，讓 Client B 點擊後進入選擇頁面
+            // 使用 liff.line.me 格式確保在 LINE 內部開啟
+            const liffParams = new URLSearchParams();
+            liffParams.set('uid', uid);
+            liffParams.set('name', name);
+            liffParams.set('price', price);
+            if (colors && colors !== 'None') liffParams.set('colors', colors);
+            if (sizes && sizes !== 'None') liffParams.set('sizes', sizes);
+            if (image) liffParams.set('image', image);
+            
+            const buyUrl = `https://liff.line.me/${LIFF_ID}?${liffParams.toString()}`;
             const addFriendUrl = "https://line.me/R/ti/p/@694nscli";
 
             const bubble = {
