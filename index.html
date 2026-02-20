@@ -107,31 +107,43 @@
         </div>
     </div>
 
-    <!-- Copy Dialog Modal -->
+    <!-- Copy & Go Modal -->
     <div id="copyModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl transform transition-all">
+        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
             <div class="p-8 text-center">
-                <div class="w-16 h-16 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                    </svg>
+                <!-- 步驟指示 -->
+                <div class="flex justify-center gap-2 mb-6">
+                    <div class="flex items-center gap-1 text-xs">
+                        <span id="step1Badge" class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">1</span>
+                        <span id="step1Text" class="text-gray-600">複製指令</span>
+                    </div>
+                    <div class="w-8 border-t border-gray-300 self-center"></div>
+                    <div class="flex items-center gap-1 text-xs">
+                        <span id="step2Badge" class="w-6 h-6 rounded-full bg-gray-300 text-white flex items-center justify-center font-bold">2</span>
+                        <span id="step2Text" class="text-gray-400">貼上發送</span>
+                    </div>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900 mb-2">請手動發送指令</h3>
+
+                <h3 class="text-xl font-bold text-gray-900 mb-2">即將完成下單！</h3>
                 <p class="text-gray-500 text-sm mb-6 leading-relaxed">
-                    由於 LINE 隱私設定限制，請複製下方指令，並在官方帳號聊天室中貼上以完成訂購。
+                    請先複製下方訂單指令，<br>再前往官方帳號聊天室貼上發送
                 </p>
                 
-                <div class="bg-gray-100 border border-gray-200 rounded-xl p-4 mb-6 select-all font-mono text-sm text-gray-700 break-all text-left">
-                    <p id="msgToCopy"></p>
-                    <p id="copyToast" class="hidden text-green-600 text-[10px] font-bold mt-1">✓ 已複製指令！</p>
+                <!-- 訂單指令框 -->
+                <div class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-4 mb-6">
+                    <p id="msgToCopy" class="font-mono text-sm text-gray-800 break-all"></p>
+                    <p id="copyToast" class="hidden text-green-600 text-xs font-bold mt-2">✓ 已複製到剪貼簿！</p>
                 </div>
 
                 <div class="space-y-3">
                     <button id="copyBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
-                        <span>複製並前往下單</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                        <span>複製訂單指令</span>
                     </button>
-                    <button onclick="liff.closeWindow()" class="w-full text-gray-400 font-medium text-xs py-2 hover:text-gray-600">
-                        關閉視窗
+                    <button onclick="document.getElementById('copyModal').classList.add('hidden')" class="w-full text-gray-400 font-medium text-sm py-2 hover:text-gray-600">
+                        取消
                     </button>
                 </div>
             </div>
@@ -149,6 +161,38 @@
                 el.innerText = `[${new Date().toLocaleTimeString()}] ${msg}\n` + el.innerText;
             }
             console.log(msg);
+        }
+
+        // Event Tracker - sends events to backend for debugging
+        async function trackEvent(action, data = {}) {
+            try {
+                let userId = null;
+                try {
+                    if (typeof liff !== 'undefined' && liff.isLoggedIn && liff.isLoggedIn()) {
+                        const ctx = liff.getContext();
+                        userId = ctx?.userId;
+                    }
+                } catch (e) { /* ignore */ }
+                
+                const payload = {
+                    action,
+                    data,
+                    userId,
+                    timestamp: new Date().toISOString(),
+                    url: window.location.href
+                };
+                
+                // Fire and forget - don't block on response
+                fetch(`${API_BASE_URL}/api/liff-log`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(() => {}); // Silently ignore errors
+                
+                log(`[TRACK] ${action}: ${JSON.stringify(data)}`);
+            } catch (e) {
+                console.warn('trackEvent error:', e);
+            }
         }
 
         let state = { uid: '', name: '', price: '', color: '', size: '', qty: 1 };
@@ -180,6 +224,8 @@
             const image = getParam('image');
             const colors = getParam('colors') || 'None';
             const sizes = getParam('sizes') || 'None';
+
+            trackEvent('share_start', { uid, name, price });
 
             const LIFF_ID = "2009061767-yr41hYAj";
             
@@ -255,12 +301,15 @@
 
                 const res = await liff.shareTargetPicker([flexMsg]);
                 if (res) {
+                    trackEvent('share_complete', { uid, name });
                     liff.closeWindow();
                 } else {
+                    trackEvent('share_cancelled', { uid, name });
                     renderQuickOrder();
                 }
             } catch (err) {
                 log('Share failed: ' + err);
+                trackEvent('share_error', { uid, name, error: err.message || String(err) });
                 alert('分享失敗：' + err.message);
                 renderQuickOrder();
             }
@@ -270,6 +319,8 @@
             // Determine page
             const page = getParam('page');
             const action = getParam('action');
+            
+            trackEvent('page_view', { page: page || 'quickorder', action, uid: getParam('uid') });
 
             if (action === 'share') {
                 await handleShare();
@@ -369,10 +420,12 @@
         async function init() {
             try {
                 log('Starting LIFF init...');
+                trackEvent('liff_init_start');
                 await liff.init({ liffId: "2009061767-yr41hYAj" });
                 
                 if (!liff.isLoggedIn()) {
                     log('Not logged in, calling login...');
+                    trackEvent('liff_login_redirect');
                     liff.login({ 
                         redirectUri: window.location.href,
                         botPrompt: 'normal'
@@ -381,9 +434,11 @@
                 }
                 
                 log('Init success. Logged In.');
+                trackEvent('liff_init_success', { isInClient: liff.isInClient() });
                 await runRender();
             } catch (err) { 
                 log('LIFF init failed: ' + err);
+                trackEvent('liff_init_error', { error: err.message || String(err) });
                 // Fallback render
                 await runRender();
             }
@@ -478,11 +533,11 @@
         }
 
         /**
-         * 核心下單邏輯：API 代發 -> liff.openWindow 跳轉 -> 手動複製備援
+         * 核心下單邏輯 - 方案 A：複製指令 + 引導開啟 OA
          * 
-         * 重要：Client B 從分享卡片進入 LIFF，非從 OA rich menu 進入
-         * 因此 liff.sendMessages() 必定失敗（權限限制）
-         * 須使用 liff.openWindow({ external: true }) 觸發 LINE URL Scheme
+         * 由於 Client B 從分享卡片進入 LIFF（非 OA rich menu），
+         * liff.sendMessages() 無權限，line.me/R/oaMessage 跳轉也會被攔截。
+         * 因此採用「複製 + 手動貼上」的兩步驟流程。
          */
         async function submitOrder() {
             // 檢查必選欄位
@@ -492,77 +547,103 @@
             }
 
             const orderMessage = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
-            const encodedMsg = encodeURIComponent(orderMessage);
-            const OA_LINK = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
             
-            log('開始處理訂單: ' + orderMessage);
+            log('準備訂單: ' + orderMessage);
+            trackEvent('order_submit', { uid: state.uid, color: state.color, size: state.size, qty: state.qty, isInClient: liff.isInClient() });
 
-            // --- 第一層：外部瀏覽器直接跳轉 ---
+            // --- 外部瀏覽器：直接跳轉（這個可以運作）---
             if (!liff.isInClient()) {
-                log('外部瀏覽器環境，直接導向 OA');
-                window.location.href = OA_LINK;
+                trackEvent('order_external_redirect', { orderMessage });
+                const encodedMsg = encodeURIComponent(orderMessage);
+                window.location.href = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
                 return;
             }
 
-            // --- 第二層：LINE 內部嘗試 API 發送（通常會失敗，因為非從 OA menu 開啟）---
-            try {
-                log('嘗試使用 liff.sendMessages API');
-                await liff.sendMessages([{ type: 'text', text: orderMessage }]);
-                log('訊息發送成功');
-                liff.closeWindow();
-                return;
-            } catch (err) {
-                log('API 發送失敗（預期行為）: ' + err.message);
-            }
-
-            // --- 第三層：使用 liff.openWindow 強制外部開啟 LINE URL Scheme ---
-            try {
-                log('使用 liff.openWindow external:true 導向 OA');
-                liff.openWindow({
-                    url: OA_LINK,
-                    external: true
-                });
-                // 延遲關閉 LIFF 視窗，讓跳轉有時間執行
-                setTimeout(() => {
-                    try { liff.closeWindow(); } catch(e) {}
-                }, 300);
-                return;
-            } catch (openErr) {
-                log('liff.openWindow 失敗: ' + openErr.message);
-            }
-
-            // --- 第四層：最終備援 - 顯示手動複製 Modal ---
-            showManualCopyModal(orderMessage);
+            // --- LINE 內部：顯示引導 Modal ---
+            showOrderModal(orderMessage);
         }
 
         /**
-         * 輔助功能：顯示手動複製 Modal (用於 API 與跳轉皆失效的最極端情況)
+         * 顯示訂單確認 Modal - 複製指令 + 開啟 OA
          */
-        function showManualCopyModal(orderMessage) {
+        function showOrderModal(orderMessage) {
             const modal = document.getElementById('copyModal');
             const msgEl = document.getElementById('msgToCopy');
+            const copyBtn = document.getElementById('copyBtn');
             const toast = document.getElementById('copyToast');
             
-            if (modal && msgEl) {
-                msgEl.innerText = orderMessage;
-                modal.classList.remove('hidden');
-                
-                const copyBtn = document.getElementById('copyBtn');
-                copyBtn.onclick = async () => {
+            if (!modal || !msgEl) return;
+            
+            // 重置 UI 狀態
+            msgEl.innerText = orderMessage;
+            toast.classList.add('hidden');
+            copyBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                <span>複製訂單指令</span>
+            `;
+            copyBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+            copyBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            
+            // 重置步驟指示
+            document.getElementById('step1Badge').classList.remove('bg-green-500');
+            document.getElementById('step1Badge').classList.add('bg-blue-600');
+            document.getElementById('step2Badge').classList.remove('bg-blue-600');
+            document.getElementById('step2Badge').classList.add('bg-gray-300');
+            document.getElementById('step2Text').classList.remove('text-gray-600');
+            document.getElementById('step2Text').classList.add('text-gray-400');
+            
+            modal.classList.remove('hidden');
+            
+            // 追蹤是否已複製
+            let hasCopied = false;
+            
+            copyBtn.onclick = async () => {
+                // Step 1: 複製到剪貼簿
+                if (!hasCopied) {
                     try {
                         await navigator.clipboard.writeText(orderMessage);
-                        if (toast) toast.classList.remove('hidden');
-                        log('指令已複製到剪貼簿');
+                        hasCopied = true;
+                        toast.classList.remove('hidden');
+                        trackEvent('order_copied_success', { orderMessage });
                         
-                        // 複製後引導用戶點擊開啟 LINE 或手動關閉
-                        setTimeout(() => {
-                            if (liff.isInClient()) liff.closeWindow();
-                        }, 1500);
-                    } catch (copyErr) {
+                        // 更新步驟指示
+                        document.getElementById('step1Badge').classList.remove('bg-blue-600');
+                        document.getElementById('step1Badge').classList.add('bg-green-500');
+                        document.getElementById('step1Badge').innerText = '✓';
+                        document.getElementById('step2Badge').classList.remove('bg-gray-300');
+                        document.getElementById('step2Badge').classList.add('bg-blue-600');
+                        document.getElementById('step2Text').classList.remove('text-gray-400');
+                        document.getElementById('step2Text').classList.add('text-gray-600');
+                        
+                        // 更新按鈕
+                        copyBtn.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            <span>已複製！點此前往聊天室</span>
+                        `;
+                        copyBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                        copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+                        log('指令已複製');
+                    } catch (err) {
+                        // 剪貼簿 API 失敗，用 prompt fallback
+                        trackEvent('order_copied_error', { error: err.message || String(err) });
                         prompt('請手動複製以下指令：', orderMessage);
+                        hasCopied = true;
                     }
-                };
-            }
+                } else {
+                    // Step 2: 已複製，開啟 OA 聊天室
+                    log('開啟 OA 聊天室');
+                    trackEvent('goto_oa_click', { orderMessage });
+                    // 使用 line.me/R/ti/p/ 開啟 OA 對話（不帶預填訊息，因為用戶會自己貼上）
+                    liff.openWindow({
+                        url: 'https://line.me/R/ti/p/@694nscli',
+                        external: false
+                    });
+                }
+            };
         }
 
         init();
