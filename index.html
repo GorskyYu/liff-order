@@ -178,11 +178,22 @@
             const name = getParam('name') || '商品';
             const price = getParam('price') || '0';
             const image = getParam('image');
+            const colors = getParam('colors') || 'None';
+            const sizes = getParam('sizes') || 'None';
 
-            // ✅ 使用 LINE OA Message URL 直接導向官方帳號對話
-            const defaultMsg = `我想購買 ${uid}`;
-            const encodedMsg = encodeURIComponent(defaultMsg);
-            const buyUrl = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
+            const LIFF_ID = "2009061767-yr41hYAj";
+            
+            // ✅ 構建 LIFF URL，讓 Client B 點擊後進入選擇頁面
+            // 使用 liff.line.me 格式確保在 LINE 內部開啟
+            const liffParams = new URLSearchParams();
+            liffParams.set('uid', uid);
+            liffParams.set('name', name);
+            liffParams.set('price', price);
+            if (colors && colors !== 'None') liffParams.set('colors', colors);
+            if (sizes && sizes !== 'None') liffParams.set('sizes', sizes);
+            if (image) liffParams.set('image', image);
+            
+            const buyUrl = `https://liff.line.me/${LIFF_ID}?${liffParams.toString()}`;
             const addFriendUrl = "https://line.me/R/ti/p/@694nscli";
 
             const bubble = {
@@ -478,52 +489,41 @@
 
             const orderMessage = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
             const encodedMsg = encodeURIComponent(orderMessage);
-            // 定向跳轉 URL：確保開啟與指定官方帳號 (@694nscli) 的對話框
-            const OA_SCHEME = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
+            const OA_LINK = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
             
             log('開始處理訂單: ' + orderMessage);
 
-            // --- 第一層防禦：外部瀏覽器判斷 ---
+            // --- 第一層：外部瀏覽器直接跳轉 ---
             if (!liff.isInClient()) {
-                log('外部瀏覽器：嘗試喚起 LINE App 並導向 OA');
-                // 使用 location.replace 避免留在空白頁
-                window.location.replace(OA_SCHEME);
-                
-                // 1.5秒後若沒跳轉成功，顯示手動複製視窗作為最終保險
-                setTimeout(() => {
-                    if (document.visibilityState === 'visible') {
-                        showManualCopyModal(orderMessage);
-                    }
-                }, 1500);
+                log('外部瀏覽器環境，直接導向 OA');
+                window.location.href = OA_LINK;
                 return;
             }
 
-            // --- 第二層防禦：LINE 內部 API 代發 ---
+            // --- 第二層：LINE 內部 LIFF 嘗試 API 發送 ---
             try {
-                log('嘗試執行 liff.sendMessages...');
+                log('嘗試使用 liff.sendMessages API');
                 await liff.sendMessages([{ type: 'text', text: orderMessage }]);
-                log('API 發送成功');
+                log('訊息發送成功');
                 liff.closeWindow();
             } catch (err) {
-                // --- 第三層防禦：權限失效時的定向跳轉 ---
-                log('API 發送失敗（權限或環境限制）: ' + err.message);
+                log('API 發送失敗: ' + err.message);
                 
-                // 如果是常見的權限錯誤，直接顯示引導 Modal 並準備跳轉
+                // --- 第三層：顯示引導 Modal 讓使用者手動點擊跳轉 ---
                 const redirectModal = document.getElementById('redirectModal');
                 const goBtn = document.getElementById('redirectGoBtn');
                 
                 if (redirectModal && goBtn) {
                     redirectModal.classList.remove('hidden');
                     
+                    // 🔥 關鍵：必須在 onclick 內同步執行 window.location.href
                     goBtn.onclick = () => {
-                        log('用戶點擊引導按鈕，執行 URL Scheme 跳轉');
-                        window.location.href = OA_SCHEME;
-                        // 跳轉後延遲關閉視窗，確保指令順利帶入
-                        setTimeout(() => liff.closeWindow(), 1000);
+                        log('使用者點擊導向按鈕');
+                        window.location.href = OA_LINK;
                     };
                 } else {
-                    // UI 找不到時的緊急備援
-                    window.location.replace(OA_SCHEME);
+                    // 緊急備援
+                    showManualCopyModal(orderMessage);
                 }
             }
         }
