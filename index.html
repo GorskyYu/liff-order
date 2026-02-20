@@ -164,6 +164,7 @@
         }
 
         // Event Tracker - sends events to backend for debugging
+        // Uses multiple methods (fetch + image beacon) for reliability
         async function trackEvent(action, data = {}) {
             try {
                 let userId = null;
@@ -182,12 +183,21 @@
                     url: window.location.href
                 };
                 
-                // Fire and forget - don't block on response
+                // Method 1: fetch (may be blocked by CORS in some WebViews)
                 fetch(`${API_BASE_URL}/api/liff-log`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 }).catch(() => {}); // Silently ignore errors
+                
+                // Method 2: Image beacon (works even when fetch fails)
+                const beacon = new Image();
+                const params = new URLSearchParams({
+                    a: action,
+                    u: userId || '',
+                    d: JSON.stringify(data).substring(0, 500)
+                });
+                beacon.src = `${API_BASE_URL}/api/liff-ping?${params.toString()}`;
                 
                 log(`[TRACK] ${action}: ${JSON.stringify(data)}`);
             } catch (e) {
@@ -637,11 +647,42 @@
                     // Step 2: 已複製，開啟 OA 聊天室
                     log('開啟 OA 聊天室');
                     trackEvent('goto_oa_click', { orderMessage });
-                    // 使用 line.me/R/ti/p/ 開啟 OA 對話（不帶預填訊息，因為用戶會自己貼上）
-                    liff.openWindow({
-                        url: 'https://line.me/R/ti/p/@694nscli',
-                        external: false
-                    });
+                    
+                    const oaUrl = 'https://line.me/R/ti/p/@694nscli';
+                    
+                    // 嘗試多種方法開啟 OA
+                    try {
+                        // Method 1: liff.openWindow (internal)
+                        log('嘗試 liff.openWindow internal');
+                        trackEvent('open_oa_method', { method: 'liff_internal' });
+                        liff.openWindow({ url: oaUrl, external: false });
+                    } catch (e1) {
+                        log('liff.openWindow internal 失敗: ' + e1);
+                        trackEvent('open_oa_error', { method: 'liff_internal', error: e1.message || String(e1) });
+                        
+                        try {
+                            // Method 2: liff.openWindow (external)
+                            log('嘗試 liff.openWindow external');
+                            trackEvent('open_oa_method', { method: 'liff_external' });
+                            liff.openWindow({ url: oaUrl, external: true });
+                        } catch (e2) {
+                            log('liff.openWindow external 失敗: ' + e2);
+                            trackEvent('open_oa_error', { method: 'liff_external', error: e2.message || String(e2) });
+                            
+                            // Method 3: window.location (use with delay to let tracking fire)
+                            log('嘗試 window.location');
+                            trackEvent('open_oa_method', { method: 'window_location' });
+                            setTimeout(() => {
+                                window.location.href = oaUrl;
+                            }, 300);
+                        }
+                    }
+                    
+                    // 顯示提示訊息
+                    setTimeout(() => {
+                        modal.classList.add('hidden');
+                        alert('訂單指令已複製！\n\n請在官方帳號聊天室「長按」輸入框後選擇「貼上」，再點發送即可完成下單。');
+                    }, 500);
                 }
             };
         }
