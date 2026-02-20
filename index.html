@@ -478,7 +478,11 @@
         }
 
         /**
-         * 核心下單邏輯：API 代發 -> 定向 OA 跳轉 -> 手動複製備援
+         * 核心下單邏輯：API 代發 -> liff.openWindow 跳轉 -> 手動複製備援
+         * 
+         * 重要：Client B 從分享卡片進入 LIFF，非從 OA rich menu 進入
+         * 因此 liff.sendMessages() 必定失敗（權限限制）
+         * 須使用 liff.openWindow({ external: true }) 觸發 LINE URL Scheme
          */
         async function submitOrder() {
             // 檢查必選欄位
@@ -500,32 +504,35 @@
                 return;
             }
 
-            // --- 第二層：LINE 內部 LIFF 嘗試 API 發送 ---
+            // --- 第二層：LINE 內部嘗試 API 發送（通常會失敗，因為非從 OA menu 開啟）---
             try {
                 log('嘗試使用 liff.sendMessages API');
                 await liff.sendMessages([{ type: 'text', text: orderMessage }]);
                 log('訊息發送成功');
                 liff.closeWindow();
+                return;
             } catch (err) {
-                log('API 發送失敗: ' + err.message);
-                
-                // --- 第三層：顯示引導 Modal 讓使用者手動點擊跳轉 ---
-                const redirectModal = document.getElementById('redirectModal');
-                const goBtn = document.getElementById('redirectGoBtn');
-                
-                if (redirectModal && goBtn) {
-                    redirectModal.classList.remove('hidden');
-                    
-                    // 🔥 關鍵：必須在 onclick 內同步執行 window.location.href
-                    goBtn.onclick = () => {
-                        log('使用者點擊導向按鈕');
-                        window.location.href = OA_LINK;
-                    };
-                } else {
-                    // 緊急備援
-                    showManualCopyModal(orderMessage);
-                }
+                log('API 發送失敗（預期行為）: ' + err.message);
             }
+
+            // --- 第三層：使用 liff.openWindow 強制外部開啟 LINE URL Scheme ---
+            try {
+                log('使用 liff.openWindow external:true 導向 OA');
+                liff.openWindow({
+                    url: OA_LINK,
+                    external: true
+                });
+                // 延遲關閉 LIFF 視窗，讓跳轉有時間執行
+                setTimeout(() => {
+                    try { liff.closeWindow(); } catch(e) {}
+                }, 300);
+                return;
+            } catch (openErr) {
+                log('liff.openWindow 失敗: ' + openErr.message);
+            }
+
+            // --- 第四層：最終備援 - 顯示手動複製 Modal ---
+            showManualCopyModal(orderMessage);
         }
 
         /**
