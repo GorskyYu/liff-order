@@ -179,36 +179,10 @@
             const price = getParam('price') || '0';
             const image = getParam('image');
 
-            const LIFF_ID = "2009061767-yr41hYAj";
-            const LIFF_URL = `https://liff.line.me/${LIFF_ID}`;
-
-            // 取得正確的 LIFF 共享連結，確保開啟時在 LINE 內部環境並保留參數
-            const getShareUrl = () => {
-                const url = new URL(LIFF_URL);
-                const params = new URLSearchParams(window.location.search);
-                params.delete('action');
-                params.forEach((v, k) => url.searchParams.set(k, v));
-                return url.toString();
-            };
-
-            if (!liff.isApiAvailable('shareTargetPicker')) {
-                const confirmCopy = confirm('您的 LINE 版本不支援分享功能，或未開啟 Share Target Picker 權限。\n是否複製購買連結以手動分享？');
-                if (confirmCopy) {
-                    const shareUrl = getShareUrl();
-                    try {
-                        await navigator.clipboard.writeText(shareUrl);
-                        alert('連結已複製！請貼上給好友。');
-                    } catch (e) {
-                        prompt('請複製以下連結：', shareUrl);
-                    }
-                }
-                document.getElementById('quickOrderView').classList.remove('hidden');
-                renderQuickOrder();
-                return;
-            }
-
-            // 使用 LIFF URL 替代原本的 window.location.href
-            const buyUrl = getShareUrl();
+            // ✅ 使用 LINE OA Message URL 直接導向官方帳號對話
+            const defaultMsg = `我想購買 ${uid}`;
+            const encodedMsg = encodeURIComponent(defaultMsg);
+            const buyUrl = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
             const addFriendUrl = "https://line.me/R/ti/p/@694nscli";
 
             const bubble = {
@@ -264,7 +238,6 @@
             };
 
             try {
-                // Show temporary view
                 document.getElementById('quickOrderView').classList.remove('hidden');
                 document.getElementById('prodName').innerText = "準備分享中...";
                 document.getElementById('prodPrice').innerText = "";
@@ -273,21 +246,11 @@
                 if (res) {
                     liff.closeWindow();
                 } else {
-                    // User canceled
                     renderQuickOrder();
                 }
             } catch (err) {
                 log('Share failed: ' + err);
-                const confirmCopy = confirm('分享失敗(' + err.message + ')。\n是否複製購買連結以手動分享？');
-                if (confirmCopy) {
-                     const shareUrl = getShareUrl();
-                     try {
-                        await navigator.clipboard.writeText(shareUrl);
-                        alert('連結已複製！');
-                     } catch (e) {
-                        prompt('請複製以下連結：', shareUrl);
-                     }
-                }
+                alert('分享失敗：' + err.message);
                 renderQuickOrder();
             }
         }
