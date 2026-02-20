@@ -497,8 +497,8 @@
             // --- 第一層防禦：外部瀏覽器判斷 ---
             if (!liff.isInClient()) {
                 log('外部瀏覽器：嘗試喚起 LINE App 並導向 OA');
-                // 使用 location.replace 避免留在空白頁
-                window.location.replace(OA_SCHEME);
+                // 使用 liff.openWindow 確保 LINE URL Scheme 正確處理
+                liff.openWindow({ url: OA_SCHEME, external: true });
                 
                 // 1.5秒後若沒跳轉成功，顯示手動複製視窗作為最終保險
                 setTimeout(() => {
@@ -528,13 +528,14 @@
                     
                     goBtn.onclick = () => {
                         log('用戶點擊引導按鈕，執行 URL Scheme 跳轉');
-                        window.location.href = OA_SCHEME;
-                        // 跳轉後延遲關閉視窗，確保指令順利帶入
-                        setTimeout(() => liff.closeWindow(), 1000);
+                        // 使用 liff.openWindow 確保在 LINE 內正確導向 OA 聊天室
+                        liff.openWindow({ url: OA_SCHEME, external: false });
+                        // 跳轉後延遲關閉視窗
+                        setTimeout(() => liff.closeWindow(), 500);
                     };
                 } else {
                     // UI 找不到時的緊急備援
-                    window.location.replace(OA_SCHEME);
+                    liff.openWindow({ url: OA_SCHEME, external: false });
                 }
             }
         }
