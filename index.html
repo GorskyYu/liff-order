@@ -178,22 +178,11 @@
             const name = getParam('name') || '商品';
             const price = getParam('price') || '0';
             const image = getParam('image');
-            const colors = getParam('colors') || 'None';
-            const sizes = getParam('sizes') || 'None';
 
-            const LIFF_ID = "2009061767-yr41hYAj";
-            
-            // ✅ 構建 LIFF URL，讓 Client B 點擊後進入選擇頁面
-            // 使用 liff.line.me 格式確保在 LINE 內部開啟
-            const liffParams = new URLSearchParams();
-            liffParams.set('uid', uid);
-            liffParams.set('name', name);
-            liffParams.set('price', price);
-            if (colors && colors !== 'None') liffParams.set('colors', colors);
-            if (sizes && sizes !== 'None') liffParams.set('sizes', sizes);
-            if (image) liffParams.set('image', image);
-            
-            const buyUrl = `https://liff.line.me/${LIFF_ID}?${liffParams.toString()}`;
+            // ✅ 使用 LINE OA Message URL 直接導向官方帳號對話
+            const defaultMsg = `我想購買 ${uid}`;
+            const encodedMsg = encodeURIComponent(defaultMsg);
+            const buyUrl = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
             const addFriendUrl = "https://line.me/R/ti/p/@694nscli";
 
             const bubble = {
@@ -497,8 +486,8 @@
             // --- 第一層防禦：外部瀏覽器判斷 ---
             if (!liff.isInClient()) {
                 log('外部瀏覽器：嘗試喚起 LINE App 並導向 OA');
-                // 使用 liff.openWindow 確保 LINE URL Scheme 正確處理
-                liff.openWindow({ url: OA_SCHEME, external: true });
+                // 使用 location.replace 避免留在空白頁
+                window.location.replace(OA_SCHEME);
                 
                 // 1.5秒後若沒跳轉成功，顯示手動複製視窗作為最終保險
                 setTimeout(() => {
@@ -528,14 +517,13 @@
                     
                     goBtn.onclick = () => {
                         log('用戶點擊引導按鈕，執行 URL Scheme 跳轉');
-                        // 使用 liff.openWindow 確保在 LINE 內正確導向 OA 聊天室
-                        liff.openWindow({ url: OA_SCHEME, external: false });
-                        // 跳轉後延遲關閉視窗
-                        setTimeout(() => liff.closeWindow(), 500);
+                        window.location.href = OA_SCHEME;
+                        // 跳轉後延遲關閉視窗，確保指令順利帶入
+                        setTimeout(() => liff.closeWindow(), 1000);
                     };
                 } else {
                     // UI 找不到時的緊急備援
-                    liff.openWindow({ url: OA_SCHEME, external: false });
+                    window.location.replace(OA_SCHEME);
                 }
             }
         }
