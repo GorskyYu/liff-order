@@ -36,8 +36,11 @@
                 </div>
             </div>
         </div>
-        <button onclick="submitOrder()" class="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95">
-            確認喊單
+        <button id="addToCartBtn" onclick="addToCart()" class="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <span>加入購物車</span>
         </button>
     </div>
 
@@ -82,6 +85,85 @@
                     </svg>
                     確認更新
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Added to Cart Modal -->
+    <div id="addedModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div class="p-8 text-center">
+                <!-- Success Icon -->
+                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                
+                <h3 class="text-2xl font-bold text-gray-900 mb-2">已加入購物車！</h3>
+                <p class="text-gray-500 mb-8">
+                    購物車共 <span id="modalCartCount" class="font-bold text-blue-600">0</span> 件商品
+                </p>
+                
+                <div class="space-y-3">
+                    <button onclick="goToCart()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all">
+                        🛒 查看購物車
+                    </button>
+                    <button onclick="continueShopping()" class="w-full border-2 border-gray-200 hover:border-gray-300 text-gray-600 font-bold py-4 rounded-xl transition-all">
+                        繼續購物
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart View -->
+    <div id="cartView" class="hidden w-full max-w-md">
+        <!-- Header -->
+        <div class="bg-white rounded-t-2xl shadow-sm">
+            <h1 class="text-xl font-bold text-center py-4 border-b">🛒 我的購物車</h1>
+        </div>
+        
+        <!-- Loading State -->
+        <div id="cartLoading" class="bg-white p-10 text-center">
+            <div class="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
+            <p class="text-gray-400 mt-4">載入中...</p>
+        </div>
+        
+        <!-- Cart Items Container -->
+        <div id="cartItems" class="hidden bg-white divide-y divide-gray-100 max-h-[55vh] overflow-y-auto">
+            <!-- Items rendered dynamically -->
+        </div>
+        
+        <!-- Empty Cart State -->
+        <div id="emptyCart" class="hidden bg-white p-10 text-center">
+            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+            </div>
+            <p class="text-gray-500 mb-4">購物車是空的</p>
+            <button onclick="liff.closeWindow()" class="text-blue-600 font-medium">去逛逛 →</button>
+        </div>
+        
+        <!-- Footer (Total + Buttons) -->
+        <div id="cartFooter" class="hidden bg-white rounded-b-2xl shadow-lg border-t">
+            <div class="p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-gray-600">共 <span id="cartItemCount">0</span> 件商品</span>
+                    <div class="text-right">
+                        <span class="text-gray-400 text-sm">總計</span>
+                        <span id="cartTotal" class="text-2xl font-bold text-red-500 ml-2">$0</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="liff.closeWindow()" class="py-4 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-all">
+                        繼續購物
+                    </button>
+                    <button onclick="checkout()" class="py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                        <span>前往結帳</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -381,6 +463,13 @@
                 } else {
                     document.getElementById('orderList').innerHTML = '<p class="text-center text-red-400 py-10">無法取得使用者資訊 (請在 LINE 中開啟)</p>';
                 }
+            } else if (page === 'cart') {
+                document.getElementById('cartView').classList.remove('hidden');
+                if (userId) {
+                    loadCart(userId);
+                } else {
+                    document.getElementById('cartItems').innerHTML = '<p class="text-center text-red-400 py-10">無法取得使用者資訊</p>';
+                }
             } else if (page === 'delivery') {
                 document.getElementById('deliveryView').classList.remove('hidden');
             } else if (page === 'currency') {
@@ -542,39 +631,250 @@
             document.getElementById('qtyText').innerText = state.qty;
         }
 
-        /**
-         * 核心下單邏輯 - 方案 A：複製指令 + 引導開啟 OA
-         * 
-         * 由於 Client B 從分享卡片進入 LIFF（非 OA rich menu），
-         * liff.sendMessages() 無權限，line.me/R/oaMessage 跳轉也會被攔截。
-         * 因此採用「複製 + 手動貼上」的兩步驟流程。
-         */
-        async function submitOrder() {
-            // 檢查必選欄位
+        async function addToCart() {
+            // Validate selections
             if (!state.color || !state.size) {
                 alert('請完整選擇顏色與尺寸');
-                return; 
-            }
-
-            const orderMessage = `${state.uid} ${state.color} ${state.size} +${state.qty}`;
-            
-            log('準備訂單: ' + orderMessage);
-            trackEvent('order_submit', { uid: state.uid, color: state.color, size: state.size, qty: state.qty, isInClient: liff.isInClient() });
-
-            // --- 外部瀏覽器：直接跳轉（這個可以運作）---
-            if (!liff.isInClient()) {
-                trackEvent('order_external_redirect', { orderMessage });
-                const encodedMsg = encodeURIComponent(orderMessage);
-                window.location.href = `https://line.me/R/oaMessage/@694nscli/?${encodedMsg}`;
                 return;
             }
 
-            // --- LINE 內部：顯示引導 Modal ---
+            // Get userId from LIFF
+            let userId = null;
+            try {
+                if (typeof liff !== 'undefined' && liff.isLoggedIn()) {
+                    userId = liff.getContext()?.userId;
+                }
+            } catch(e) {
+                console.error('Cannot get userId', e);
+            }
+            
+            if (!userId) {
+                alert('無法取得用戶資訊，請在 LINE 中開啟');
+                return;
+            }
+
+            // Show loading state
+            const btn = document.querySelector('#addToCartBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="animate-pulse">加入中...</span>';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/cart/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userId,
+                        productId: state.uid,
+                        productName: state.name,
+                        productPrice: parseFloat(state.price) || 0,
+                        productImage: getParam('image') || '',
+                        color: state.color,
+                        size: state.size,
+                        quantity: state.qty
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    trackEvent('add_to_cart_success', { uid: state.uid, name: state.name });
+                    showAddedToCartModal(data.cartCount);
+                } else {
+                    trackEvent('add_to_cart_error', { message: data.message });
+                    alert('加入購物車失敗：' + (data.message || '未知錯誤'));
+                }
+            } catch (err) {
+                trackEvent('add_to_cart_network_error', { error: String(err) });
+                console.error('Add to cart error:', err);
+                alert('網路錯誤，請稍後再試');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        function showAddedToCartModal(cartCount) {
+            document.getElementById('modalCartCount').textContent = cartCount;
+            document.getElementById('addedModal').classList.remove('hidden');
+        }
+
+        function goToCart() {
+            // Reload page with page=cart param
+            const url = new URL(window.location.href);
+            url.searchParams.set('page', 'cart');
+            window.location.href = url.toString();
+        }
+
+        function continueShopping() {
+             liff.closeWindow();
+        }
+
+        // Store current cart items for checkout
+        let currentCartItems = [];
+
+        // Load cart from API
+        async function loadCart(userId) {
+            const loading = document.getElementById('cartLoading');
+            const itemsContainer = document.getElementById('cartItems');
+            const emptyState = document.getElementById('emptyCart');
+            const footer = document.getElementById('cartFooter');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/cart/${userId}`);
+                const data = await response.json();
+                
+                loading.classList.add('hidden');
+                
+                if (!data.success || !data.items || data.items.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    footer.classList.add('hidden');
+                    currentCartItems = [];
+                    return;
+                }
+                
+                // Store cart items for checkout
+                currentCartItems = data.items;
+                
+                renderCartItems(data.items);
+                updateCartSummary(data.totalItems, data.totalAmount);
+                
+                itemsContainer.classList.remove('hidden');
+                footer.classList.remove('hidden');
+                
+            } catch (err) {
+                console.error('Load cart error:', err);
+                loading.innerHTML = '<p class="text-red-500">載入失敗，請重試</p>';
+            }
+        }
+
+        // Render cart items
+        function renderCartItems(items) {
+            const container = document.getElementById('cartItems');
+            
+            container.innerHTML = items.map(item => `
+                <div class="p-4 flex gap-4" data-item-id="${item.id}">
+                    <!-- Product Image -->
+                    <div class="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        ${item.productImage 
+                            ? `<img src="${item.productImage}" class="w-full h-full object-cover" alt="${item.productName}">`
+                            : `<div class="w-full h-full flex items-center justify-center text-gray-400">
+                                 <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                 </svg>
+                               </div>`
+                        }
+                    </div>
+                    
+                    <!-- Product Info -->
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-medium text-gray-900 truncate">${item.productName}</h3>
+                        <p class="text-sm text-gray-500">${item.color} / ${item.size}</p>
+                        <p class="text-red-500 font-bold mt-1">$${item.productPrice.toLocaleString()}</p>
+                    </div>
+                    
+                    <!-- Quantity & Delete -->
+                    <div class="flex flex-col items-end justify-between">
+                        <button onclick="removeCartItem(${item.id})" class="text-gray-400 hover:text-red-500 p-1">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                        <div class="flex items-center border rounded-lg">
+                            <button onclick="updateCartQty(${item.id}, ${item.quantity - 1})" class="px-2 py-1 text-gray-500 hover:bg-gray-100 ${item.quantity <= 1 ? 'opacity-50' : ''}">−</button>
+                            <span class="px-3 py-1 text-sm font-medium">${item.quantity}</span>
+                            <button onclick="updateCartQty(${item.id}, ${item.quantity + 1})" class="px-2 py-1 text-gray-500 hover:bg-gray-100">+</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Update cart summary
+        function updateCartSummary(totalItems, totalAmount) {
+            document.getElementById('cartItemCount').textContent = totalItems;
+            document.getElementById('cartTotal').textContent = `$${totalAmount.toLocaleString()}`;
+        }
+
+        // Update item quantity
+        async function updateCartQty(itemId, newQty) {
+            if (newQty < 1) {
+                if (confirm('確定要移除此商品嗎？')) {
+                    removeCartItem(itemId);
+                }
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/cart/update`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId, quantity: newQty })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Reload cart to reflect changes
+                    const userId = liff.getContext()?.userId;
+                    if (userId) loadCart(userId);
+                } else {
+                    alert('更新失敗：' + data.message);
+                }
+            } catch (err) {
+                console.error('Update cart error:', err);
+                alert('網路錯誤，請稍後再試');
+            }
+        }
+
+        // Remove item from cart
+        async function removeCartItem(itemId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/cart/item/${itemId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Reload cart
+                    const userId = liff.getContext()?.userId;
+                    if (userId) loadCart(userId);
+                } else {
+                    alert('刪除失敗：' + data.message);
+                }
+            } catch (err) {
+                console.error('Remove item error:', err);
+                alert('網路錯誤，請稍後再試');
+            }
+        }
+
+        // Checkout - Generate order message and show copy modal
+        function checkout() {
+            trackEvent('checkout_click', { itemCount: currentCartItems.length });
+            
+            if (!currentCartItems || currentCartItems.length === 0) {
+                alert('購物車是空的');
+                return;
+            }
+            
+            // Generate order message from cart items
+            // Format: "productId color size +qty" for each item, separated by newlines
+            const orderLines = currentCartItems.map(item => 
+                `${item.productId} ${item.color} ${item.size} +${item.quantity}`
+            );
+            
+            const orderMessage = orderLines.join('\n');
+            
+            log('準備結帳訂單: ' + orderMessage);
+            trackEvent('checkout_order', { items: currentCartItems.length, message: orderMessage });
+            
+            // Show the copy modal with order message
             showOrderModal(orderMessage);
         }
 
         /**
-         * 顯示訂單確認 Modal - 複製指令 + 開啟 OA
+         * 顯示訂單確認 Modal - 複製指令 + 開啟 OA (用於結帳)
          */
         function showOrderModal(orderMessage) {
             const modal = document.getElementById('copyModal');
@@ -599,6 +899,7 @@
             // 重置步驟指示
             document.getElementById('step1Badge').classList.remove('bg-green-500');
             document.getElementById('step1Badge').classList.add('bg-blue-600');
+            document.getElementById('step1Badge').innerText = '1';
             document.getElementById('step2Badge').classList.remove('bg-blue-600');
             document.getElementById('step2Badge').classList.add('bg-gray-300');
             document.getElementById('step2Text').classList.remove('text-gray-600');
@@ -652,7 +953,6 @@
                     
                     // 嘗試多種方法開啟 OA
                     try {
-                        // Method 1: liff.openWindow (internal)
                         log('嘗試 liff.openWindow internal');
                         trackEvent('open_oa_method', { method: 'liff_internal' });
                         liff.openWindow({ url: oaUrl, external: false });
@@ -661,7 +961,6 @@
                         trackEvent('open_oa_error', { method: 'liff_internal', error: e1.message || String(e1) });
                         
                         try {
-                            // Method 2: liff.openWindow (external)
                             log('嘗試 liff.openWindow external');
                             trackEvent('open_oa_method', { method: 'liff_external' });
                             liff.openWindow({ url: oaUrl, external: true });
@@ -669,7 +968,6 @@
                             log('liff.openWindow external 失敗: ' + e2);
                             trackEvent('open_oa_error', { method: 'liff_external', error: e2.message || String(e2) });
                             
-                            // Method 3: window.location (use with delay to let tracking fire)
                             log('嘗試 window.location');
                             trackEvent('open_oa_method', { method: 'window_location' });
                             setTimeout(() => {
