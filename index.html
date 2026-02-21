@@ -189,45 +189,46 @@
         </div>
     </div>
 
-    <!-- Copy & Go Modal -->
-    <div id="copyModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+    <!-- Payment Result Modal -->
+    <div id="paymentResultModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[120] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
             <div class="p-8 text-center">
-                <!-- 步驟指示 -->
-                <div class="flex justify-center gap-2 mb-6">
-                    <div class="flex items-center gap-1 text-xs">
-                        <span id="step1Badge" class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">1</span>
-                        <span id="step1Text" class="text-gray-600">複製指令</span>
-                    </div>
-                    <div class="w-8 border-t border-gray-300 self-center"></div>
-                    <div class="flex items-center gap-1 text-xs">
-                        <span id="step2Badge" class="w-6 h-6 rounded-full bg-gray-300 text-white flex items-center justify-center font-bold">2</span>
-                        <span id="step2Text" class="text-gray-400">貼上發送</span>
-                    </div>
+                <!-- Success Icon (shown when payment=success) -->
+                <div id="paymentSuccessIcon" class="hidden w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
                 </div>
-
-                <h3 class="text-xl font-bold text-gray-900 mb-2">即將完成下單！</h3>
-                <p class="text-gray-500 text-sm mb-6 leading-relaxed">
-                    請先複製下方訂單指令，<br>再前往官方帳號聊天室貼上發送
-                </p>
+                <!-- Error Icon (shown when payment=error) -->
+                <div id="paymentErrorIcon" class="hidden w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-10 h-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </div>
+                <!-- Cancelled Icon -->
+                <div id="paymentCancelledIcon" class="hidden w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-10 h-10 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
                 
-                <!-- 訂單指令框 -->
-                <div class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-4 mb-6">
-                    <p id="msgToCopy" class="font-mono text-sm text-gray-800 break-all"></p>
-                    <p id="copyToast" class="hidden text-green-600 text-xs font-bold mt-2">✓ 已複製到剪貼簿！</p>
-                </div>
+                <h3 id="paymentResultTitle" class="text-2xl font-bold text-gray-900 mb-2"></h3>
+                <p id="paymentResultMessage" class="text-gray-500 mb-8"></p>
+                
+                <button onclick="closePaymentResult()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all">
+                    確定
+                </button>
+            </div>
+        </div>
+    </div>
 
-                <div class="space-y-3">
-                    <button id="copyBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                        </svg>
-                        <span>複製訂單指令</span>
-                    </button>
-                    <button onclick="document.getElementById('copyModal').classList.add('hidden')" class="w-full text-gray-400 font-medium text-sm py-2 hover:text-gray-600">
-                        取消
-                    </button>
-                </div>
+    <!-- LINE Pay Loading Modal -->
+    <div id="linePayLoadingModal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div class="p-8 text-center">
+                <div class="animate-spin w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-6"></div>
+                <h3 class="text-xl font-bold text-gray-900 mb-2">正在連接 LINE Pay...</h3>
+                <p class="text-gray-500 text-sm">請稍候，即將跳轉至付款頁面</p>
             </div>
         </div>
     </div>
@@ -465,6 +466,13 @@
                 }
             } else if (page === 'cart') {
                 document.getElementById('cartView').classList.remove('hidden');
+                
+                // Check for payment result params
+                const paymentResult = getParam('payment');
+                if (paymentResult) {
+                    handlePaymentResult(paymentResult, getParam('orderId'), getParam('msg'));
+                }
+                
                 if (userId) {
                     loadCart(userId);
                 } else {
@@ -849,8 +857,8 @@
             }
         }
 
-        // Checkout - Generate order message and show copy modal
-        function checkout() {
+        // Checkout - Use LINE Pay
+        async function checkout() {
             trackEvent('checkout_click', { itemCount: currentCartItems.length });
             
             if (!currentCartItems || currentCartItems.length === 0) {
@@ -858,131 +866,107 @@
                 return;
             }
             
-            // Generate order message from cart items
-            // Format: "productId color size +qty" for each item, separated by newlines
-            const orderLines = currentCartItems.map(item => 
-                `${item.productId} ${item.color} ${item.size} +${item.quantity}`
+            // Get userId
+            let userId = null;
+            try {
+                if (liff.isLoggedIn()) {
+                    userId = liff.getContext()?.userId;
+                }
+            } catch (e) {
+                console.error('Cannot get userId', e);
+            }
+            
+            if (!userId) {
+                alert('無法取得用戶資訊，請在 LINE 中開啟');
+                return;
+            }
+            
+            // Calculate total
+            const totalAmount = currentCartItems.reduce((sum, item) => 
+                sum + (item.productPrice * item.quantity), 0
             );
             
-            const orderMessage = orderLines.join('\n');
+            log(`準備 LINE Pay 結帳: ${currentCartItems.length} 件商品, 總計 $${totalAmount}`);
+            trackEvent('linepay_checkout_start', { items: currentCartItems.length, totalAmount });
             
-            log('準備結帳訂單: ' + orderMessage);
-            trackEvent('checkout_order', { items: currentCartItems.length, message: orderMessage });
+            // Show loading modal
+            document.getElementById('linePayLoadingModal').classList.remove('hidden');
             
-            // Show the copy modal with order message
-            showOrderModal(orderMessage);
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/linepay/request`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userId,
+                        items: currentCartItems,
+                        totalAmount: Math.round(totalAmount)  // LINE Pay requires integer
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.paymentUrl) {
+                    trackEvent('linepay_redirect', { orderId: data.orderId, transactionId: data.transactionId });
+                    log('LINE Pay URL: ' + data.paymentUrl);
+                    
+                    // Redirect to LINE Pay
+                    window.location.href = data.paymentUrl;
+                } else {
+                    document.getElementById('linePayLoadingModal').classList.add('hidden');
+                    trackEvent('linepay_request_error', { message: data.message });
+                    alert('無法建立付款請求：' + (data.message || '未知錯誤'));
+                }
+            } catch (err) {
+                document.getElementById('linePayLoadingModal').classList.add('hidden');
+                trackEvent('linepay_network_error', { error: String(err) });
+                console.error('LINE Pay request error:', err);
+                alert('網路錯誤，請稍後再試');
+            }
         }
 
-        /**
-         * 顯示訂單確認 Modal - 複製指令 + 開啟 OA (用於結帳)
-         */
-        function showOrderModal(orderMessage) {
-            const modal = document.getElementById('copyModal');
-            const msgEl = document.getElementById('msgToCopy');
-            const copyBtn = document.getElementById('copyBtn');
-            const toast = document.getElementById('copyToast');
+        // Handle payment result from LINE Pay callback
+        function handlePaymentResult(result, orderId, errorMsg) {
+            const modal = document.getElementById('paymentResultModal');
+            const successIcon = document.getElementById('paymentSuccessIcon');
+            const errorIcon = document.getElementById('paymentErrorIcon');
+            const cancelledIcon = document.getElementById('paymentCancelledIcon');
+            const title = document.getElementById('paymentResultTitle');
+            const message = document.getElementById('paymentResultMessage');
             
-            if (!modal || !msgEl) return;
+            // Hide all icons first
+            successIcon.classList.add('hidden');
+            errorIcon.classList.add('hidden');
+            cancelledIcon.classList.add('hidden');
             
-            // 重置 UI 狀態
-            msgEl.innerText = orderMessage;
-            toast.classList.add('hidden');
-            copyBtn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                </svg>
-                <span>複製訂單指令</span>
-            `;
-            copyBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
-            copyBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
-            
-            // 重置步驟指示
-            document.getElementById('step1Badge').classList.remove('bg-green-500');
-            document.getElementById('step1Badge').classList.add('bg-blue-600');
-            document.getElementById('step1Badge').innerText = '1';
-            document.getElementById('step2Badge').classList.remove('bg-blue-600');
-            document.getElementById('step2Badge').classList.add('bg-gray-300');
-            document.getElementById('step2Text').classList.remove('text-gray-600');
-            document.getElementById('step2Text').classList.add('text-gray-400');
+            if (result === 'success') {
+                successIcon.classList.remove('hidden');
+                title.textContent = '付款成功！';
+                message.textContent = `訂單編號：${orderId || '---'}\n感謝您的購買！`;
+                trackEvent('payment_success', { orderId });
+            } else if (result === 'cancelled') {
+                cancelledIcon.classList.remove('hidden');
+                title.textContent = '付款已取消';
+                message.textContent = '您已取消此次付款。購物車商品仍保留，可隨時結帳。';
+                trackEvent('payment_cancelled', { orderId });
+            } else {
+                errorIcon.classList.remove('hidden');
+                title.textContent = '付款失敗';
+                message.textContent = errorMsg ? `錯誤：${errorMsg}` : '付款處理時發生錯誤，請稍後再試。';
+                trackEvent('payment_error', { orderId, errorMsg });
+            }
             
             modal.classList.remove('hidden');
             
-            // 追蹤是否已複製
-            let hasCopied = false;
-            
-            copyBtn.onclick = async () => {
-                // Step 1: 複製到剪貼簿
-                if (!hasCopied) {
-                    try {
-                        await navigator.clipboard.writeText(orderMessage);
-                        hasCopied = true;
-                        toast.classList.remove('hidden');
-                        trackEvent('order_copied_success', { orderMessage });
-                        
-                        // 更新步驟指示
-                        document.getElementById('step1Badge').classList.remove('bg-blue-600');
-                        document.getElementById('step1Badge').classList.add('bg-green-500');
-                        document.getElementById('step1Badge').innerText = '✓';
-                        document.getElementById('step2Badge').classList.remove('bg-gray-300');
-                        document.getElementById('step2Badge').classList.add('bg-blue-600');
-                        document.getElementById('step2Text').classList.remove('text-gray-400');
-                        document.getElementById('step2Text').classList.add('text-gray-600');
-                        
-                        // 更新按鈕
-                        copyBtn.innerHTML = `
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                            <span>已複製！點此前往聊天室</span>
-                        `;
-                        copyBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-                        copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
-                        log('指令已複製');
-                    } catch (err) {
-                        // 剪貼簿 API 失敗，用 prompt fallback
-                        trackEvent('order_copied_error', { error: err.message || String(err) });
-                        prompt('請手動複製以下指令：', orderMessage);
-                        hasCopied = true;
-                    }
-                } else {
-                    // Step 2: 已複製，開啟 OA 聊天室
-                    log('開啟 OA 聊天室');
-                    trackEvent('goto_oa_click', { orderMessage });
-                    
-                    const oaUrl = 'https://line.me/R/ti/p/@694nscli';
-                    
-                    // 嘗試多種方法開啟 OA
-                    try {
-                        log('嘗試 liff.openWindow internal');
-                        trackEvent('open_oa_method', { method: 'liff_internal' });
-                        liff.openWindow({ url: oaUrl, external: false });
-                    } catch (e1) {
-                        log('liff.openWindow internal 失敗: ' + e1);
-                        trackEvent('open_oa_error', { method: 'liff_internal', error: e1.message || String(e1) });
-                        
-                        try {
-                            log('嘗試 liff.openWindow external');
-                            trackEvent('open_oa_method', { method: 'liff_external' });
-                            liff.openWindow({ url: oaUrl, external: true });
-                        } catch (e2) {
-                            log('liff.openWindow external 失敗: ' + e2);
-                            trackEvent('open_oa_error', { method: 'liff_external', error: e2.message || String(e2) });
-                            
-                            log('嘗試 window.location');
-                            trackEvent('open_oa_method', { method: 'window_location' });
-                            setTimeout(() => {
-                                window.location.href = oaUrl;
-                            }, 300);
-                        }
-                    }
-                    
-                    // 顯示提示訊息
-                    setTimeout(() => {
-                        modal.classList.add('hidden');
-                        alert('訂單指令已複製！\n\n請在官方帳號聊天室「長按」輸入框後選擇「貼上」，再點發送即可完成下單。');
-                    }, 500);
-                }
-            };
+            // Clean URL params
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('payment');
+            cleanUrl.searchParams.delete('orderId');
+            cleanUrl.searchParams.delete('msg');
+            window.history.replaceState({}, '', cleanUrl.toString());
+        }
+        
+        function closePaymentResult() {
+            document.getElementById('paymentResultModal').classList.add('hidden');
         }
 
         init();
